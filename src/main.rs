@@ -125,7 +125,7 @@ mod app {
         let _spi_sclk = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_miso = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_cs = pins.gpio8.into_mode::<hal::gpio::FunctionSpi>();
+        let _spi_cs = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
         let spi = hal::Spi::<_, _, 16>::new(c.device.SPI0);
         
         // Exchange the uninitialised SPI driver for an initialised one
