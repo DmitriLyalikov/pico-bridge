@@ -5,7 +5,7 @@
 </p>
 
 The **pico-rtic-rpc** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. firmware for the rp2040 based on the RTIC (Real Time Interrupt Driven Concurrency) embedded framework for Rust.
-firmware for the [`rp2040`][1] based on the [`embassy`][2] asynchronous embedded development framework for [Rust][3].
+firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driven Concurrency environment for [Rust][3].
 
 This includes the binary application that will run on the RP2040 chip. It will listen for 'RPC' requests from a SPI master.
 An 'RPC' request is a multi byte message that specifies the request-id, interface, payload, and CRC-8. 
