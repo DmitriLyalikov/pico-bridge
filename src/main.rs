@@ -4,17 +4,27 @@
 use defmt_rtt as _;
 use panic_halt as _;
 
+mod fmt;
+
 #[rtic::app(device = rp2040_hal::pac, peripherals = true)]
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
+    use embedded_time::duration::Extensions;
 
     use rp2040_hal as hal;
     use hal::clocks::Clock;
+    use hal::timer::Alarm;
     use hal::uart::{UartConfig, DataBits, StopBits};
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
     use fugit::RateExtU32;
+
+    // USB Device support 
+    use usb_device::{class_prelude::*, prelude::*};
+    // USB Communications Class Device support
+    use usbd_serial::SerialPort;
+
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -23,8 +33,15 @@ mod app {
     /// if your board has a different frequency
     const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
+        // Blink time 5 seconds
+        const SCAN_TIME_US: u32 = 5000000; //  200000; // 5000000;  // 1000000; // 200000;
+
     #[shared]
-    struct Shared {}
+    struct Shared {
+        
+        serial: SerialPort<'static, hal::usb::UsbBus>,
+        usb_dev: usb_device::device::UsbDevice<'static, hal::usb::UsbBus>,
+    }
 
     #[local]
     struct Local {
@@ -32,7 +49,7 @@ mod app {
         uart_dev: rp2040_hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
     }
 
-    #[init(local = [])]
+    #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None])]
     fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
         // Initialization of the system clock.
@@ -92,11 +109,43 @@ mod app {
             clocks.peripheral_clock.freq(),
         )
         .unwrap();
-        
+
+        //*****
+        // Initialization of the USB and Serial and USB Device ID
+
+        // USB
+        // 
+        // Set up the USB Driver
+        // The bus that is used to manage the device and class below
+        let usb_bus: &'static _ = 
+            c.local
+                .usb_bus
+                .insert(UsbBusAllocator::new(hal::usb::UsbBus::new(
+                    c.device.USBCTRL_REGS,
+                    c.device.USBCTRL_DPRAM,
+                    clocks.usb_clock,
+                    true,
+                    &mut resets,
+                )));
+
+        // Set up the USB Communication Class Device Driver
+        let serial = SerialPort::new(usb_bus);
+
+        // Create a USB device with a VID and PID
+        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid((0x16c0), (0x27dd)))
+                .manufacturer("Validation")
+                .product("Serial port")
+                .serial_number("TEST")
+                .device_class(2) // from https://www.usb.org/defined-class-codes
+                .build();
+
         //********
         // Return the Shared variables struct, the Local variables struct and the XPTO Monitonics
         (
-            Shared {},
+            Shared {
+                serial,
+                usb_dev,
+            },
             Local {
                 spi_dev: spi_dev,
                 uart_dev: uart, 

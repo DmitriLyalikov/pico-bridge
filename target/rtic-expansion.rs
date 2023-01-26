@@ -4,19 +4,21 @@
     r" Always include the device crate which contains the vector table"] use
     rp2040_hal :: pac as
     you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml ; use
-    embedded_hal :: blocking :: spi :: Transfer ; use rp2040_hal as hal ; use
-    hal :: clocks :: Clock ; use hal :: uart ::
+    embedded_hal :: blocking :: spi :: Transfer ; use embedded_time ::
+    duration :: Extensions ; use rp2040_hal as hal ; use hal :: clocks ::
+    Clock ; use hal :: timer :: Alarm ; use hal :: uart ::
     { UartConfig, DataBits, StopBits } ; use hal :: gpio ::
     { pin :: bank0 :: *, Pin, FunctionUart } ; use hal :: pac as pac ; use
-    fugit :: RateExtU32 ; #[doc = r" User code from within the module"] type
-    UartTx = Pin < Gpio0, FunctionUart > ; type UartRx = Pin < Gpio1,
-    FunctionUart > ;
+    fugit :: RateExtU32 ; use usb_device ::
+    { class_prelude :: *, prelude :: * } ; use usbd_serial :: SerialPort ;
+    #[doc = r" User code from within the module"] type UartTx = Pin < Gpio0,
+    FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
     #[doc = " if your board has a different frequency"] const XTAL_FREQ_HZ :
-    u32 = 12_000_000u32 ; #[doc = r" User code end"] #[inline(always)]
-    #[allow(non_snake_case)] fn init(c : init :: Context) ->
-    (Shared, Local, init :: Monotonics)
+    u32 = 12_000_000u32 ; const SCAN_TIME_US : u32 = 5000000 ;
+    #[doc = r" User code end"] #[inline(always)] #[allow(non_snake_case)] fn
+    init(c : init :: Context) -> (Shared, Local, init :: Monotonics)
     {
         let mut resets = c.device.RESETS ; let mut watchdog = hal :: watchdog
         :: Watchdog :: new(c.device.WATCHDOG) ; let clocks = hal :: clocks ::
@@ -39,9 +41,19 @@
         new(c.device.UART0, uart_pins, & mut
         resets).enable(UartConfig ::
         new(9600.Hz(), DataBits :: Eight, None, StopBits :: One),
-        clocks.peripheral_clock.freq(),).unwrap() ;
-        (Shared {}, Local { spi_dev : spi_dev, uart_dev : uart, }, init ::
-        Monotonics(),)
+        clocks.peripheral_clock.freq(),).unwrap() ; let usb_bus : & 'static _
+        =
+        c.local.usb_bus.insert(UsbBusAllocator ::
+        new(hal :: usb :: UsbBus ::
+        new(c.device.USBCTRL_REGS, c.device.USBCTRL_DPRAM, clocks.usb_clock,
+        true, & mut resets,))) ; let serial = SerialPort :: new(usb_bus) ; let
+        usb_dev = UsbDeviceBuilder ::
+        new(usb_bus,
+        UsbVidPid((0x16c0),
+        (0x27dd))).manufacturer("Validation").product("Serial port").serial_number("TEST").device_class(2).build()
+        ;
+        (Shared { serial, usb_dev, }, Local
+        { spi_dev : spi_dev, uart_dev : uart, }, init :: Monotonics(),)
     } #[allow(non_snake_case)] fn idle(_cx : idle :: Context) ->!
     {
         use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; loop
@@ -52,11 +64,21 @@
         use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let mut
         tx_buf = [1_u16, 2, 3, 4, 5, 6] ; let mut _rx_buf = [0_u16 ; 6] ; let
         _t = cx.local.spi_dev.transfer(& mut tx_buf) ;
-    } struct Shared {} struct Local
+    } struct Shared
+    {
+        serial : SerialPort < 'static, hal :: usb :: UsbBus >, usb_dev :
+        usb_device :: device :: UsbDevice < 'static, hal :: usb :: UsbBus >,
+    } struct Local
     {
         spi_dev : rp2040_hal :: Spi < hal :: spi :: Enabled, pac :: SPI0, 16
         >, uart_dev : rp2040_hal :: uart :: UartPeripheral < hal :: uart ::
         Enabled, pac :: UART0, (UartTx, UartRx) >,
+    } #[allow(non_snake_case)] #[allow(non_camel_case_types)]
+    #[doc = "Local resources `init` has access to"] pub struct
+    __rtic_internal_initLocalResources < >
+    {
+        pub usb_bus : & 'static mut Option < usb_device :: bus ::
+        UsbBusAllocator < hal :: usb :: UsbBus > >,
     } #[doc = r" Monotonics used by the system"] #[allow(non_snake_case)]
     #[allow(non_camel_case_types)] pub struct __rtic_internal_Monotonics() ;
     #[doc = r" Execution context"] #[allow(non_snake_case)]
@@ -67,6 +89,8 @@
         Peripherals, #[doc = r" Device peripherals"] pub device : rp2040_hal
         :: pac :: Peripherals, #[doc = r" Critical section token for init"]
         pub cs : rtic :: export :: CriticalSection < 'a >,
+        #[doc = r" Local Resources this task has access to"] pub local : init
+        :: LocalResources < >,
     } impl < 'a > __rtic_internal_init_Context < 'a >
     {
         #[inline(always)] pub unsafe fn
@@ -75,13 +99,16 @@
             __rtic_internal_init_Context
             {
                 device : rp2040_hal :: pac :: Peripherals :: steal(), cs :
-                rtic :: export :: CriticalSection :: new(), core,
+                rtic :: export :: CriticalSection :: new(), core, local : init
+                :: LocalResources :: new(),
             }
         }
     } #[allow(non_snake_case)] #[doc = "Initialization function"] pub mod init
     {
-        pub use super :: __rtic_internal_Monotonics as Monotonics ; pub use
-        super :: __rtic_internal_init_Context as Context ;
+        #[doc(inline)] pub use super :: __rtic_internal_initLocalResources as
+        LocalResources ; pub use super :: __rtic_internal_Monotonics as
+        Monotonics ; pub use super :: __rtic_internal_init_Context as Context
+        ;
     } #[allow(non_snake_case)] #[allow(non_camel_case_types)]
     #[doc = "Local resources `idle` has access to"] pub struct
     __rtic_internal_idleLocalResources < > { pub x : & 'static mut u32, }
@@ -103,6 +130,26 @@
         #[doc(inline)] pub use super :: __rtic_internal_idleLocalResources as
         LocalResources ; pub use super :: __rtic_internal_idle_Context as
         Context ;
+    } mod shared_resources
+    {
+        use rtic :: export :: Priority ; #[doc(hidden)]
+        #[allow(non_camel_case_types)] pub struct
+        serial_that_needs_to_be_locked < 'a > { priority : & 'a Priority, }
+        impl < 'a > serial_that_needs_to_be_locked < 'a >
+        {
+            #[inline(always)] pub unsafe fn new(priority : & 'a Priority) ->
+            Self { serial_that_needs_to_be_locked { priority } }
+            #[inline(always)] pub unsafe fn priority(& self) -> & Priority
+            { self.priority }
+        } #[doc(hidden)] #[allow(non_camel_case_types)] pub struct
+        usb_dev_that_needs_to_be_locked < 'a > { priority : & 'a Priority, }
+        impl < 'a > usb_dev_that_needs_to_be_locked < 'a >
+        {
+            #[inline(always)] pub unsafe fn new(priority : & 'a Priority) ->
+            Self { usb_dev_that_needs_to_be_locked { priority } }
+            #[inline(always)] pub unsafe fn priority(& self) -> & Priority
+            { self.priority }
+        }
     } #[allow(non_snake_case)] #[allow(non_camel_case_types)]
     #[doc = "Local resources `spi0_irq` has access to"] pub struct
     __rtic_internal_spi0_irqLocalResources < 'a >
@@ -128,12 +175,65 @@
         #[doc(inline)] pub use super :: __rtic_internal_spi0_irqLocalResources
         as LocalResources ; pub use super :: __rtic_internal_spi0_irq_Context
         as Context ;
-    } #[doc = r" app module"] impl < > __rtic_internal_idleLocalResources < >
+    } #[doc = r" app module"] impl < > __rtic_internal_initLocalResources < >
+    {
+        #[inline(always)] pub unsafe fn new() -> Self
+        {
+            __rtic_internal_initLocalResources
+            {
+                usb_bus : & mut *
+                __rtic_internal_local_init_usb_bus.get_mut(),
+            }
+        }
+    } impl < > __rtic_internal_idleLocalResources < >
     {
         #[inline(always)] pub unsafe fn new() -> Self
         {
             __rtic_internal_idleLocalResources
             { x : & mut * __rtic_internal_local_idle_x.get_mut(), }
+        }
+    } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
+    #[doc(hidden)] #[link_section = ".uninit.rtic0"] static
+    __rtic_internal_shared_resource_serial : rtic :: RacyCell < core :: mem ::
+    MaybeUninit < SerialPort < 'static, hal :: usb :: UsbBus > >> = rtic ::
+    RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ; impl < 'a > rtic
+    :: Mutex for shared_resources :: serial_that_needs_to_be_locked < 'a >
+    {
+        type T = SerialPort < 'static, hal :: usb :: UsbBus > ;
+        #[inline(always)] fn lock < RTIC_INTERNAL_R >
+        (& mut self, f : impl
+        FnOnce(& mut SerialPort < 'static, hal :: usb :: UsbBus >) ->
+        RTIC_INTERNAL_R) -> RTIC_INTERNAL_R
+        {
+            #[doc = r" Priority ceiling"] const CEILING : u8 = 0u8 ; unsafe
+            {
+                rtic :: export ::
+                lock(__rtic_internal_shared_resource_serial.get_mut() as * mut
+                _, self.priority(), CEILING, rp2040_hal :: pac ::
+                NVIC_PRIO_BITS, & __rtic_internal_MASKS, f,)
+            }
+        }
+    } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
+    #[doc(hidden)] #[link_section = ".uninit.rtic1"] static
+    __rtic_internal_shared_resource_usb_dev : rtic :: RacyCell < core :: mem
+    :: MaybeUninit < usb_device :: device :: UsbDevice < 'static, hal :: usb
+    :: UsbBus > >> = rtic :: RacyCell ::
+    new(core :: mem :: MaybeUninit :: uninit()) ; impl < 'a > rtic :: Mutex
+    for shared_resources :: usb_dev_that_needs_to_be_locked < 'a >
+    {
+        type T = usb_device :: device :: UsbDevice < 'static, hal :: usb ::
+        UsbBus > ; #[inline(always)] fn lock < RTIC_INTERNAL_R >
+        (& mut self, f : impl
+        FnOnce(& mut usb_device :: device :: UsbDevice < 'static, hal :: usb
+        :: UsbBus >) -> RTIC_INTERNAL_R) -> RTIC_INTERNAL_R
+        {
+            #[doc = r" Priority ceiling"] const CEILING : u8 = 0u8 ; unsafe
+            {
+                rtic :: export ::
+                lock(__rtic_internal_shared_resource_usb_dev.get_mut() as *
+                mut _, self.priority(), CEILING, rp2040_hal :: pac ::
+                NVIC_PRIO_BITS, & __rtic_internal_MASKS, f,)
+            }
         }
     } #[doc(hidden)] #[allow(non_upper_case_globals)] const
     __rtic_internal_MASKS : [u32 ; 3] =
@@ -141,16 +241,20 @@
     rtic :: export ::
     create_mask([rp2040_hal :: pac :: Interrupt :: SPI0_IRQ as u32])] ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic0"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic2"] static
     __rtic_internal_local_resource_spi_dev : rtic :: RacyCell < core :: mem ::
     MaybeUninit < rp2040_hal :: Spi < hal :: spi :: Enabled, pac :: SPI0, 16 >
     >> = rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic1"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic3"] static
     __rtic_internal_local_resource_uart_dev : rtic :: RacyCell < core :: mem
     :: MaybeUninit < rp2040_hal :: uart :: UartPeripheral < hal :: uart ::
     Enabled, pac :: UART0, (UartTx, UartRx) > >> = rtic :: RacyCell ::
     new(core :: mem :: MaybeUninit :: uninit()) ;
+    #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
+    #[doc(hidden)] static __rtic_internal_local_init_usb_bus : rtic ::
+    RacyCell < Option < usb_device :: bus :: UsbBusAllocator < hal :: usb ::
+    UsbBus > > > = rtic :: RacyCell :: new(None) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_local_idle_x : rtic :: RacyCell <
     u32 > = rtic :: RacyCell :: new(0) ; #[allow(non_snake_case)] #[no_mangle]
