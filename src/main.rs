@@ -1,6 +1,16 @@
 #![no_std]
 #![no_main]
 
+//! Pico-RPC-RTIC Application for MCHP Hardware Interface Bridging
+//! Opens USB Device Serial Port, SPI slave, and Serial UART Host-to-Device transport layers to handle reqeusts 
+//! RTIC assigns hardware tasks for these peripheral interrupts in the RTIC domain to handle asynchronous host requests
+//! 
+//! Author: Dmitri Lyalikov
+//! Version: 0.0.1
+//! 
+//! TODO: Load, Configure, Start PIO state machines (SMI,JTAG)
+//!
+
 use defmt_rtt as _;
 use panic_halt as _;
 
@@ -14,7 +24,6 @@ mod app {
 
     use rp2040_hal as hal;
     use hal::clocks::Clock;
-    use hal::timer::Alarm;
     use hal::uart::{UartConfig, DataBits, StopBits};
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
@@ -33,8 +42,8 @@ mod app {
     /// if your board has a different frequency
     const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
-        // Blink time 5 seconds
-        const SCAN_TIME_US: u32 = 5000000; //  200000; // 5000000;  // 1000000; // 200000;
+    // Blink time 5 seconds
+    const SCAN_TIME_US: u32 = 5000000; //  200000; // 5000000;  // 1000000; // 200000;
 
     #[shared]
     struct Shared {
@@ -132,7 +141,7 @@ mod app {
         let serial = SerialPort::new(usb_bus);
 
         // Create a USB device with a VID and PID
-        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid((0x16c0), (0x27dd)))
+        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
                 .manufacturer("Validation")
                 .product("Serial port")
                 .serial_number("TEST")
@@ -165,6 +174,42 @@ mod app {
         let mut _rx_buf = [0_u16; 6];
         let _t = cx.local.spi_dev.transfer(&mut tx_buf);
     }
+
+    // USB interrupt handler hardware task. Runs every time host requests new data
+    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev])]
+    fn usb_rx(cx: usb_rx::Context) {
+        let usb_dev = cx.shared.usb_dev;
+        let serial = cx.shared.serial;
+
+        (usb_dev, serial).lock(
+            |usb_dev_a, serial_a| {
+                // Check for new data
+                if  usb_dev_a.poll(&mut [serial_a]) {
+                    let mut buf = [0u8; 64];
+                    match serial_a.read(&mut buf) {
+                        Err(_e) => {
+                            // Do nothing
+                            // let _ = serial_a.write(b"Error Reading in Data");
+                            // let _ = serial_a.flush();
+                        }
+                        Ok(0) => {
+                            // Do nothing
+                            let _ = serial_a.write(b"Didn't received data.");
+                            let _ = serial_a.flush();
+                        }
+                        // TODO Add OK(_count) response
+                        // Ok(_count) => {
+                        // match_usb_serial_buf()   
+                        // }
+                    }
+                    }
+                }
+            )
+        }
+
+
+
+
 
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [x: u32 = 0])]
