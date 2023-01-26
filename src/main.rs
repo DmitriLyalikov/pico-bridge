@@ -4,7 +4,6 @@
 use defmt_rtt as _;
 use panic_halt as _;
 
-
 #[rtic::app(device = rp2040_hal::pac, peripherals = true)]
 mod app {
 
