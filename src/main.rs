@@ -9,6 +9,9 @@
 //! Version: 0.0.1
 //! 
 //! TODO: Load, Configure, Start PIO state machines (SMI,JTAG)
+//! TODO: push init, print_menu, match_usb_serial_buf, and write_serial into a module
+//! TODO: Menu task spawn
+//! TODO: SPI/UART command abstraction and data types 
 //!
 
 use defmt_rtt as _;
