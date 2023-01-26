@@ -44,9 +44,6 @@ mod app {
     /// if your board has a different frequency
     const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
-    // Blink time 5 seconds
-    const SCAN_TIME_US: u32 = 5000000; //  200000; // 5000000;  // 1000000; // 200000;
-
     pub struct Counter {
         counter: u32,
         enable: bool,
