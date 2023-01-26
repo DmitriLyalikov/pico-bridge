@@ -190,7 +190,7 @@ $ DEFMT_LOG=error cargo run --release
 
 <!-- Reference -->
 [1]: https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html
-[2]: https://embassy.dev/dev/index.html
+[2]: https://rtic.rs/1/book/en/preface.html
 [3]: https://www.rust-lang.org/
 [4]: https://github.com/knurling-rs/app-template
 [5]: https://github.com/knurling-rs/defmt
