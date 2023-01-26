@@ -1,0 +1,2 @@
+cargo:rustc-cfg=rustc_is_nightly
+cargo:rerun-if-changed=build.rs

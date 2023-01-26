@@ -1,0 +1,1 @@
+{"rustc":9174961198080829887,"features":"","target":0,"profile":0,"path":0,"deps":[[11809997431157786577,"build_script_build",false,1777449758077953497],[17725763122220523271,"build_script_build",false,4928356220571116313]],"local":[{"RerunIfEnvChanged":{"var":"DEFMT_RTT_BUFFER_SIZE","val":null}}],"rustflags":[],"metadata":0,"config":0,"compile_kind":0}

@@ -1,0 +1,18 @@
+c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\deps\typenum-b47b253230330095.rmeta: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\bit.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\int.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\marker_traits.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\operator_aliases.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\private.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\type_operators.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\uint.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\array.rs c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\op.rs c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\consts.rs
+
+c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\deps\typenum-b47b253230330095.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\bit.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\int.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\marker_traits.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\operator_aliases.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\private.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\type_operators.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\uint.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\array.rs c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\op.rs c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\consts.rs
+
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\lib.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\bit.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\int.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\marker_traits.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\operator_aliases.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\private.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\type_operators.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\uint.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\typenum-1.16.0\src\array.rs:
+c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\op.rs:
+c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\consts.rs:
+
+# env-dep:TYPENUM_BUILD_CONSTS=c:\\Users\\Dmitr\\Documents\\Rust_Projects\\rpc_rtic\\target\\debug\\build\\typenum-bb16954627850ea2\\out\\consts.rs
+# env-dep:TYPENUM_BUILD_OP=c:\\Users\\Dmitr\\Documents\\Rust_Projects\\rpc_rtic\\target\\debug\\build\\typenum-bb16954627850ea2\\out\\op.rs
