@@ -20,7 +20,6 @@ mod fmt;
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
-    use embedded_time::duration::Extensions;
 
     use rp2040_hal as hal;
     use hal::clocks::Clock;
