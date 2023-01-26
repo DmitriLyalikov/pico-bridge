@@ -44,11 +44,44 @@ mod app {
     // Blink time 5 seconds
     const SCAN_TIME_US: u32 = 5000000; //  200000; // 5000000;  // 1000000; // 200000;
 
+    pub struct Counter {
+        counter: u32,
+        enable: bool,
+    }
+
+    impl Counter {
+        fn new() -> Self {
+            Counter {
+                counter: 0_u32,
+                enable: true,
+            }
+        }
+
+        fn get(&self) -> u32 {
+            self.counter
+        }
+
+        fn reset(&mut self) {
+            self.counter = 0_u32;
+        }
+
+        fn increment(&mut self) {
+            self.counter += 1;
+        }
+
+        fn enable(&mut self, state: bool) {
+            self.enable = state;
+        }
+    }
+
+
     #[shared]
     struct Shared {
         
         serial: SerialPort<'static, hal::usb::UsbBus>,
         usb_dev: usb_device::device::UsbDevice<'static, hal::usb::UsbBus>,
+
+        counter: Counter,
     }
 
     #[local]
@@ -147,7 +180,11 @@ mod app {
                 .device_class(2) // from https://www.usb.org/defined-class-codes
                 .build();
 
-        // Set Core to sleep until IRQ
+        // Reset the counter
+        let counter = Counter::new();
+    
+
+        // Set core to sleep
         c.core.SCB.set_sleepdeep();
         //********
         // Return the Shared variables struct, the Local variables struct and the XPTO Monitonics
@@ -155,6 +192,8 @@ mod app {
             Shared {
                 serial,
                 usb_dev,
+
+                counter,
             },
             Local {
                 spi_dev: spi_dev,
@@ -177,13 +216,14 @@ mod app {
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
-    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev])]
+    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter])]
     fn usb_rx(cx: usb_rx::Context) {
         let usb_dev = cx.shared.usb_dev;
         let serial = cx.shared.serial;
+        let counter = cx.shared.counter;
 
-        (usb_dev, serial).lock(
-            |usb_dev_a, serial_a| {
+        (usb_dev, serial, counter).lock(
+            |usb_dev_a, serial_a, counter_a| {
                 // Check for new data
                 if  usb_dev_a.poll(&mut [serial_a]) {
                     let mut buf = [0u8; 64];
@@ -199,18 +239,15 @@ mod app {
                             let _ = serial_a.flush();
                         }
                         // TODO Add OK(_count) response
-                        // Ok(_count) => {
-                        // match_usb_serial_buf()   
+                        Ok(_count) => {
+                            match_usb_serial_buf(&buf, serial_a, counter_a);   
                         // }
                     }
                     }
                 }
+                }
             )
         }
-
-
-
-
 
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [x: u32 = 0])]
@@ -226,5 +263,98 @@ mod app {
             // https://developer.arm.com/documentation/ddi0406/c/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/WFI
             rtic::export::wfi()
         }
+    }
+
+    /* New Tasks */
+
+    // Helper function to ensure all data is written across the serial interface
+    fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &str, block: bool) {
+        let write_ptr = buf.as_bytes();
+
+        // Because the buffer is of constant size and initialized to zero (0) we 
+        //  add a test to determine the size that's really occupied by the str that we
+        // want to send. From index zero to first byte that is as the zero byte value
+        let mut index = 0;
+        while index < write_ptr.len() && write_ptr[index] != 0 {
+            index += 1;
+        }
+        let mut write_ptr = &write_ptr[0..index];
+
+        while !write_ptr.is_empty() {
+            match serial.write(write_ptr) {
+                Ok(len) => write_ptr = &write_ptr[len..],
+                // Meaning the USB write buffer is full
+                Err(UsbError::WouldBlock) => {
+                    if !block {
+                        break;
+                    }
+                }
+                // On error, just drop unwritten data
+                Err(_) => break,
+            }
+        }
+        let _ = serial.flush();
+    }
+
+    // Match the Serial Input commands to a hardware/software request
+    fn match_usb_serial_buf(
+        buf: &[u8; 64],
+        // Add any accessed 'static peripherals (PIO, SPI, etc) that will be controlled by host
+        serial: &mut SerialPort<'static, hal::usb::UsbBus>,
+        counter: &mut Counter,
+    ) {
+        let _buf_len = buf.len();
+        match buf[0] {
+            // Print Menu
+            b'M' | b'm' => {
+                write_serial(serial, "M - Print Menu\n", false);
+                print_menu(serial);
+            }
+            // 0 - Reset counter
+            b'0' => {
+            write_serial(serial, "M - Print Menu\n", false);
+                counter.reset();
+            }
+            // 1 - Increment counter
+            b'1' => {
+                write_serial(serial, "1 - Increment counter\n", false);
+                counter.increment();
+            }
+            // 2 - Start continues counter
+            b'2' => {
+                write_serial(serial, "2 - Start continues counter\n", false);
+                counter.enable(true);
+            }
+            // 3 - Stop continues counter
+            b'3' => {
+                write_serial(serial, "3 - Stop continues counter\n", false);
+                counter.enable(false);
+            }
+            _ => {
+                write_serial(
+                    serial,
+                    unsafe { core::str::from_utf8_unchecked(buf) },
+                    false,
+                );
+                write_serial(serial, "Invalid option!\n", false);
+            }
+        }
+    }
+
+    fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
+        let mut _buf = [0u8; 273];
+        // Create the Menu.
+        let menu_str = "*****************
+*  Menu:
+*
+*  M / m - Print menu
+*    0   - Reset counter
+*    1   - Increment counter
+*    2   - Start continues counter
+*    3   - Stop continues counter
+*****************
+Enter option: ";
+
+        write_serial(serial, menu_str, true);
     }
 }
