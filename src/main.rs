@@ -58,7 +58,7 @@ mod app {
     }
 
     #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None])]
-    fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
+    fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
         // Initialization of the system clock.
         let mut resets = c.device.RESETS;
@@ -147,6 +147,8 @@ mod app {
                 .device_class(2) // from https://www.usb.org/defined-class-codes
                 .build();
 
+        // Set Core to sleep until IRQ
+        c.core.SCB.set_sleepdeep();
         //********
         // Return the Shared variables struct, the Local variables struct and the XPTO Monitonics
         (
@@ -212,14 +214,17 @@ mod app {
 
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [x: u32 = 0])]
-    fn idle(_cx: idle::Context) -> ! {
+    fn idle(cx: idle::Context) -> ! {
         // Locals in idle have lifetime 'static
-        // let _x: &'static mut u32 = cx.local.x;
+        let x: &'static mut u32 = cx.local.x;
 
         //hprintln!("idle").unwrap();
 
         loop {
-            cortex_m::asm::nop();
+            // Now Wait For Interrupt is used instead of a busy-wait loop
+            // to allow MCU to sleep between interrupts
+            // https://developer.arm.com/documentation/ddi0406/c/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/WFI
+            rtic::export::wfi()
         }
     }
 }
