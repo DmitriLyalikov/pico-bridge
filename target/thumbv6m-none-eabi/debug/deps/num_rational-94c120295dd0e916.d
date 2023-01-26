@@ -1,8 +1,8 @@
-C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\deps\num_rational-94c120295dd0e916.rmeta: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\num_rational-94c120295dd0e916.rmeta: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs
 
-C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\deps\libnum_rational-94c120295dd0e916.rlib: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\libnum_rational-94c120295dd0e916.rlib: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs
 
-C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\deps\num_rational-94c120295dd0e916.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\num_rational-94c120295dd0e916.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs
 
 C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\lib.rs:
 C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\num-rational-0.3.2\src\pow.rs:

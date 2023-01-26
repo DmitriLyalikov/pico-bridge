@@ -1,1 +1,1 @@
-C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\rp2040-rpc: C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\build.rs C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\memory.x C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\src\main.rs
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\rp2040-rpc: C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\build.rs C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\memory.x C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\src\main.rs

@@ -5,8 +5,12 @@
     rp2040_hal :: pac as
     you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml ; use
     embedded_hal :: blocking :: spi :: Transfer ; use rp2040_hal as hal ; use
-    hal :: clocks :: Clock ; use hal :: pac as pac ; use fugit :: RateExtU32 ;
-    #[doc = r" User code from within the module"]
+    hal :: clocks :: Clock ; use hal :: uart ::
+    { UartConfig, DataBits, StopBits } ; use hal :: gpio ::
+    { pin :: bank0 :: *, Pin, FunctionUart } ; use hal :: pac as pac ; use
+    fugit :: RateExtU32 ; #[doc = r" User code from within the module"] type
+    UartTx = Pin < Gpio0, FunctionUart > ; type UartRx = Pin < Gpio1,
+    FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
     #[doc = " if your board has a different frequency"] const XTAL_FREQ_HZ :
@@ -28,8 +32,16 @@
         :: < hal :: gpio :: FunctionSpi > () ; let spi = hal :: Spi :: < _, _,
         16 > :: new(c.device.SPI0) ; let spi_dev =
         spi.init(& mut resets, clocks.peripheral_clock.freq(), 16.MHz(), &
-        embedded_hal :: spi :: MODE_0, true,) ;
-        (Shared {}, Local { spi_dev : spi_dev, }, init :: Monotonics(),)
+        embedded_hal :: spi :: MODE_0, true,) ; let uart_pins =
+        (pins.gpio0.into_mode :: < hal :: gpio :: FunctionUart > (),
+        pins.gpio1.into_mode :: < hal :: gpio :: FunctionUart > (),) ; let mut
+        uart = hal :: uart :: UartPeripheral ::
+        new(c.device.UART0, uart_pins, & mut
+        resets).enable(UartConfig ::
+        new(9600.Hz(), DataBits :: Eight, None, StopBits :: One),
+        clocks.peripheral_clock.freq(),).unwrap() ;
+        (Shared {}, Local { spi_dev : spi_dev, uart_dev : uart, }, init ::
+        Monotonics(),)
     } #[allow(non_snake_case)] fn idle(_cx : idle :: Context) ->!
     {
         use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; loop
@@ -43,7 +55,8 @@
     } struct Shared {} struct Local
     {
         spi_dev : rp2040_hal :: Spi < hal :: spi :: Enabled, pac :: SPI0, 16
-        >,
+        >, uart_dev : rp2040_hal :: uart :: UartPeripheral < hal :: uart ::
+        Enabled, pac :: UART0, (UartTx, UartRx) >,
     } #[doc = r" Monotonics used by the system"] #[allow(non_snake_case)]
     #[allow(non_camel_case_types)] pub struct __rtic_internal_Monotonics() ;
     #[doc = r" Execution context"] #[allow(non_snake_case)]
@@ -133,6 +146,12 @@
     MaybeUninit < rp2040_hal :: Spi < hal :: spi :: Enabled, pac :: SPI0, 16 >
     >> = rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
+    #[doc(hidden)] #[link_section = ".uninit.rtic1"] static
+    __rtic_internal_local_resource_uart_dev : rtic :: RacyCell < core :: mem
+    :: MaybeUninit < rp2040_hal :: uart :: UartPeripheral < hal :: uart ::
+    Enabled, pac :: UART0, (UartTx, UartRx) > >> = rtic :: RacyCell ::
+    new(core :: mem :: MaybeUninit :: uninit()) ;
+    #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_local_idle_x : rtic :: RacyCell <
     u32 > = rtic :: RacyCell :: new(0) ; #[allow(non_snake_case)] #[no_mangle]
     #[inline(never)] #[link_section = ".data.bar"] unsafe fn SPI0_IRQ()
@@ -159,7 +178,10 @@
         use super :: * ; #[no_mangle] unsafe extern "C" fn main() ->!
         {
             rtic :: export :: assert_send :: < rp2040_hal :: Spi < hal :: spi
-            :: Enabled, pac :: SPI0, 16 > > () ; const _CONST_CHECK : () =
+            :: Enabled, pac :: SPI0, 16 > > () ; rtic :: export :: assert_send
+            :: < rp2040_hal :: uart :: UartPeripheral < hal :: uart ::
+            Enabled, pac :: UART0, (UartTx, UartRx) > > () ; const
+            _CONST_CHECK : () =
             {
                 if rtic :: export :: is_armv6()
                 {

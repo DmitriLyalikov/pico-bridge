@@ -1,3 +1,3 @@
 cargo:rerun-if-changed=build/main.rs
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\build\typenum-df05d4867ba1b7b6\out\consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\build\typenum-df05d4867ba1b7b6\out\op.rs
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\typenum-df05d4867ba1b7b6\out\consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\typenum-df05d4867ba1b7b6\out\op.rs

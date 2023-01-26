@@ -1,4 +1,4 @@
 cargo:rustc-link-lib=static=cortex-m
-cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\thumbv6m-none-eabi\debug\build\cortex-m-5088b4595ecdbc99\out
+cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\cortex-m-5088b4595ecdbc99\out
 cargo:rustc-cfg=cortex_m
 cargo:rustc-cfg=armv6m

@@ -1,3 +1,0 @@
-cargo:rerun-if-changed=build/main.rs
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=c:\Users\Dmitr\Documents\Rust_Projects\rpc_rtic\target\debug\build\typenum-bb16954627850ea2\out\op.rs

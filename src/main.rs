@@ -5,7 +5,6 @@ use defmt_rtt as _;
 use panic_halt as _;
 
 
-
 #[rtic::app(device = rp2040_hal::pac, peripherals = true)]
 mod app {
 
@@ -13,8 +12,13 @@ mod app {
 
     use rp2040_hal as hal;
     use hal::clocks::Clock;
+    use hal::uart::{UartConfig, DataBits, StopBits};
+    use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
     use fugit::RateExtU32;
+
+    type UartTx = Pin<Gpio0, FunctionUart>;
+    type UartRx = Pin<Gpio1, FunctionUart>;
 
     /// External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust
     /// if your board has a different frequency
@@ -26,6 +30,7 @@ mod app {
     #[local]
     struct Local {
         spi_dev: rp2040_hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
+        uart_dev: rp2040_hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
     }
 
     #[init(local = [])]
@@ -75,12 +80,27 @@ mod app {
             true,
         );
 
+        let uart_pins = (
+            // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
+            pins.gpio0.into_mode::<hal::gpio::FunctionUart>(),
+            // UART RX (characters received by RP2040) on pin 2 (GPIO1)
+            pins.gpio1.into_mode::<hal::gpio::FunctionUart>(),
+        );
+
+        let mut uart = hal::uart::UartPeripheral::new(c.device.UART0, uart_pins, &mut resets)
+        .enable(
+            UartConfig::new(9600.Hz(), DataBits::Eight, None, StopBits::One),
+            clocks.peripheral_clock.freq(),
+        )
+        .unwrap();
+        
         //********
         // Return the Shared variables struct, the Local variables struct and the XPTO Monitonics
         (
             Shared {},
             Local {
                 spi_dev: spi_dev,
+                uart_dev: uart, 
             },
             init::Monotonics(),
         )
