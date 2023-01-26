@@ -1,7 +1,7 @@
 <!-- Title -->
 <p align="center">
   <img width=15% src="https://www.svgrepo.com/show/68860/microchip.svg">
-  <h1 align="center">rpc-pico-embassy</h1>
+  <h1 align="center">pico-rpc-rtic</h1>
 </p>
 
 The **pico-rtic-rpc** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. firmware for the rp2040 based on the RTIC (Real Time Interrupt Driven Concurrency) embedded framework for Rust.
