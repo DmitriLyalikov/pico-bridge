@@ -12,6 +12,9 @@
 //! TODO: push init, print_menu, match_usb_serial_buf, and write_serial into a module
 //! TODO: Menu task spawn
 //! TODO: SPI/UART command abstraction and data types 
+//! 
+//! TODO: Clear SPI/UART interrupts
+//! 
 //!
 
 use defmt_rtt as _;
@@ -29,6 +32,7 @@ mod app {
     use hal::uart::{UartConfig, DataBits, StopBits};
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
+    use pac::{SPI0, Interrupt};
     use fugit::RateExtU32;
 
     // USB Device support 
@@ -134,7 +138,7 @@ mod app {
             clocks.peripheral_clock.freq(),
             16.MHz(),
             &embedded_hal::spi::MODE_0,
-            true,
+            true, // Set the M/S bit to slave
         );
 
         let uart_pins = (
@@ -182,10 +186,10 @@ mod app {
 
         // Reset the counter
         let counter = Counter::new();
-    
 
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
+
         //********
         // Return the Shared variables struct, the Local variables struct and the XPTO Monitonics
         (
@@ -213,6 +217,8 @@ mod app {
         let mut tx_buf = [1_u16, 2, 3, 4, 5, 6];
         let mut _rx_buf = [0_u16; 6];
         let _t = cx.local.spi_dev.transfer(&mut tx_buf);
+        
+        
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
