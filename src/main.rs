@@ -216,9 +216,7 @@ mod app {
     fn spi0_irq(cx: spi0_irq::Context) {
         let mut tx_buf = [1_u16, 2, 3, 4, 5, 6];
         let mut _rx_buf = [0_u16; 6];
-        let _t = cx.local.spi_dev.transfer(&mut tx_buf);
-        
-        
+        let _t = cx.local.spi_dev.transfer(&mut tx_buf);    
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
