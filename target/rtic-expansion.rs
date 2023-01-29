@@ -13,8 +13,9 @@
     { SPI0, Interrupt } ; use rp_pico :: XOSC_CRYSTAL_FREQ ; use fugit ::
     RateExtU32 ; use crate :: setup :: Counter ; use usb_device ::
     { class_prelude :: *, prelude :: * } ; use usbd_serial :: SerialPort ;
-    #[doc = r" User code from within the module"] type UartTx = Pin < Gpio0,
-    FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
+    #[doc = r" User code from within the module"] const PIO_CLK_DIV_FRAQ : u8
+    = 255 ; type UartTx = Pin < Gpio0, FunctionUart > ; type UartRx = Pin <
+    Gpio1, FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
     #[doc = " if your board has a different frequency"] const XTAL_FREQ_HZ :
@@ -70,15 +71,16 @@
     print_menu(serial : & mut SerialPort < 'static, hal :: usb :: UsbBus >)
     {
         let mut _buf = [0u8 ; 273] ; let menu_str =
-        "*****************
-*  Menu:
-*
-*  M / m - Print menu
-*    0   - Reset counter
-*    1   - Increment counter
-*    2   - Start continues counter
-*    3   - Stop continues counter
-*****************
+        "***************** \n\r
+*  RP2040 RPC \n\r
+*  Menu:\n\r
+* \n\r
+*  M / m - Print menu \n\r
+*    0   - smi r phyAddr RegAddr \n\r
+*    1   - smi w phyAddr RegAddr Data \n\r
+*    2   - smi reset \n\r
+*    3   - smi setclk frequency \n\r
+***************** \n\r
 Enter option: "
         ; write_serial(serial, menu_str, true) ;
     } #[doc = r" User code end"] #[inline(always)] #[allow(non_snake_case)] fn
@@ -115,7 +117,33 @@ Enter option: "
         new(usb_bus,
         UsbVidPid(0x16c0,
         0x27dd)).manufacturer("Validation").product("Serial port").serial_number("TEST").device_class(2).build()
-        ; let counter = Counter :: new() ; c.core.SCB.set_sleepdeep() ;
+        ; let counter = Counter :: new() ; let _mdio_pin =
+        pins.gpio15.into_mode :: < hal :: gpio :: FunctionPio0 > () ; let
+        program = pio_proc :: pio_asm!
+        ("
+        .side_set 1", ".wrap_target", "set pins, 0   side 0",
+        "start:", "pull block side 0", "set pindirs, 1 side 0",
+        "set x, 31 side 0", "preamble:", "set pins, 1 side 1      [4]",
+        "set pins 1  side 0      [2]", "jmp x-- preamble side 0 [2]",
+        "set pins, 0  side 1     [4]", "nop side 0 [2]",
+        "set y, 11 side 0 [2]", "set pins, 1 side 1 [4]", "nop side 0 [1]",
+        "addr:", "set x, 15 side 0 [3]", "out pins, 1   side 1 [4]",
+        "jmp y-- addr side 0 [1]", "out null 20 side 0  [3]",
+        "nop side 1 [4]", "nop side 0 [4]", "nop side 1 [4]",
+        "jmp !osre write_data    side 0 [2]", "set pindirs, 0 side 0 [2]",
+        "read_data:", "in pins 1 side 1 [4]", "jmp x-- read_data side 0 [4]",
+        "push side 0", "jmp start side 0", "write_data:", "nop side 0 [1]",
+        "out pins, 1 side 1 [4]", "jmp x-- write_data side 0 [3]", ".wrap",) ;
+        let(mut pio, sm0, _, _, _,) = c.device.PIO0.split(& mut resets) ; let
+        installed = pio.install(& program.program).unwrap() ;
+        let(mut sm, _, mut tx) = PIOBuilder ::
+        from_program(installed).out_pins(1,
+        1).side_set_pin_base(2).out_sticky(false).clock_divisor_fixed_point(1,
+        PIO_CLK_DIV_FRAQ).out_shift_direction(ShiftDirection ::
+        Right).in_shift_direction(ShiftDirection ::
+        Left).autopull(true).pull_threshold(0).set_pins(1,
+        1).in_pin_base(1).build(sm0) ; sm.set_pindirs([(1, PinDir :: Output)])
+        ; c.core.SCB.set_sleepdeep() ;
         (Shared { serial, usb_dev, counter, }, Local
         { spi_dev : spi_dev, uart_dev : uart, }, init :: Monotonics(),)
     } #[allow(non_snake_case)] fn idle(cx : idle :: Context) ->!

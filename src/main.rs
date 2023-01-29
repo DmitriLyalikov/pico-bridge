@@ -46,6 +46,8 @@ mod app {
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use fugit::RateExtU32;
 
+    const PIO_CLK_DIV_FRAQ: u8 = 255;
+
     use crate::setup::Counter;
 
     // USB Device support 
@@ -166,8 +168,8 @@ mod app {
         // Reset the counter
         let counter = Counter::new();
 
-        // let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
-        /*let program = pio_proc::pio_asm!( 
+        let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
+        let program = pio_proc::pio_asm!( 
         "
         .side_set 1",
         ".wrap_target",
@@ -205,11 +207,11 @@ mod app {
         "out pins, 1 side 1 [4]",
         "jmp x-- write_data side 0 [3]",
         ".wrap",
-        ); */
+        ); 
             
-        //let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
-        //let installed = pio.install(&program.program).unwrap();
-        /*let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
+        let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
+        let installed = pio.install(&program.program).unwrap();
+        let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
             .out_pins(1, 1)
             .side_set_pin_base(2)
             .out_sticky(false)
@@ -222,7 +224,7 @@ mod app {
             .in_pin_base(1)
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
-        tx.write(3); */
+        //tx.write(3); 
             
             
         // Set core to sleep
@@ -386,15 +388,16 @@ mod app {
     fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
         let mut _buf = [0u8; 273];
         // Create the Menu.
-        let menu_str = "*****************
-*  Menu:
-*
-*  M / m - Print menu
-*    0   - Reset counter
-*    1   - Increment counter
-*    2   - Start continues counter
-*    3   - Stop continues counter
-*****************
+        let menu_str = "***************** \n\r
+*  RP2040 RPC \n\r
+*  Menu:\n\r
+* \n\r
+*  M / m - Print menu \n\r
+*    0   - smi r phyAddr RegAddr \n\r
+*    1   - smi w phyAddr RegAddr Data \n\r
+*    2   - smi reset \n\r
+*    3   - smi setclk frequency \n\r
+***************** \n\r
 Enter option: ";
 
         write_serial(serial, menu_str, true);
