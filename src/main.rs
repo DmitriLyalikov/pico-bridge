@@ -21,6 +21,7 @@ use defmt_rtt as _;
 use panic_halt as _;
 
 mod fmt;
+mod setup;
 
 #[rtic::app(device = rp2040_hal::pac, peripherals = true)]
 mod app {
@@ -32,6 +33,7 @@ mod app {
     use hal::uart::{UartConfig, DataBits, StopBits};
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
+    use crate::setup::Counter;
     use pac::{SPI0, Interrupt};
     use fugit::RateExtU32;
 
@@ -47,37 +49,6 @@ mod app {
     /// External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust
     /// if your board has a different frequency
     const XTAL_FREQ_HZ: u32 = 12_000_000u32;
-
-    pub struct Counter {
-        counter: u32,
-        enable: bool,
-    }
-
-    impl Counter {
-        fn new() -> Self {
-            Counter {
-                counter: 0_u32,
-                enable: true,
-            }
-        }
-
-        fn get(&self) -> u32 {
-            self.counter
-        }
-
-        fn reset(&mut self) {
-            self.counter = 0_u32;
-        }
-
-        fn increment(&mut self) {
-            self.counter += 1;
-        }
-
-        fn enable(&mut self, state: bool) {
-            self.enable = state;
-        }
-    }
-
 
     #[shared]
     struct Shared {
