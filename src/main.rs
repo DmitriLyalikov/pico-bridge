@@ -23,10 +23,17 @@ use panic_halt as _;
 mod fmt;
 mod setup;
 
+
+/// Clock divider for the PIO SM
+const PIO_CLK_DIV_INT: u16 = 1;
+const PIO_CLK_DIV_FRAQ: u8 = 255;
+
+
 #[rtic::app(device = rp2040_hal::pac, peripherals = true)]
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
+    use embedded_time::fixed_point::FixedPoint;
 
     use rp2040_hal as hal;
     use hal::clocks::Clock;
@@ -34,6 +41,7 @@ mod app {
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
     use hal::pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,};
+    use crate::PIO_CLK_DIV_FRAQ;
     use crate::setup::Counter;
     use pac::{SPI0, Interrupt};
     use fugit::RateExtU32;
@@ -201,7 +209,23 @@ mod app {
         ); 
             
         let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
-        
+        let installed = pio.install(&program.program).unwrap();
+        let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
+            .out_pins(1, 1)
+            .side_set_pin_base(2)
+            .out_sticky(false)
+            .clock_divisor_fixed_point(1, PIO_CLK_DIV_FRAQ)
+            .out_shift_direction(ShiftDirection::Right)
+            .in_shift_direction(ShiftDirection::Left)
+            .autopull(true)
+            .pull_threshold(0)
+            .set_pins(1, 1)
+            .in_pin_base(1)
+            .build(sm0);
+        sm.set_pindirs([(1, PinDir::Output)]);
+        tx.write(3);
+            
+            
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
 
