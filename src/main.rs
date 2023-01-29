@@ -17,7 +17,7 @@
 //! 
 //!
 
-use defmt_rtt as _;
+ use defmt_rtt as _;
 use panic_halt as _;
 
 mod fmt;
@@ -29,22 +29,24 @@ const PIO_CLK_DIV_INT: u16 = 1;
 const PIO_CLK_DIV_FRAQ: u8 = 255;
 
 
-#[rtic::app(device = rp2040_hal::pac, peripherals = true)]
+#[rtic::app(device = rp_pico::pac, peripherals = true)]
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
     use embedded_time::fixed_point::FixedPoint;
 
-    use rp2040_hal as hal;
+    use rp_pico::hal as hal;
+    use rp_pico::pac;
     use hal::clocks::Clock;
+    use hal::spi;
     use hal::uart::{UartConfig, DataBits, StopBits};
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
-    use hal::pac as pac;
     use hal::pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,};
-    use crate::PIO_CLK_DIV_FRAQ;
-    use crate::setup::Counter;
     use pac::{SPI0, Interrupt};
+    use rp_pico::XOSC_CRYSTAL_FREQ;
     use fugit::RateExtU32;
+
+    use crate::setup::Counter;
 
     // USB Device support 
     use usb_device::{class_prelude::*, prelude::*};
@@ -70,8 +72,8 @@ mod app {
 
     #[local]
     struct Local {
-        spi_dev: rp2040_hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
-        uart_dev: rp2040_hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
+        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
+        uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
     }
 
     #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None])]
@@ -111,16 +113,12 @@ mod app {
         let _spi_miso = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_cs = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
         let spi = hal::Spi::<_, _, 16>::new(c.device.SPI0);
+        // Exchange the uninitialized spi device for an enabled slave
+        let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
         
-        // Exchange the uninitialised SPI driver for an initialised one
-        let spi_dev = spi.init(
-            &mut resets,
-            clocks.peripheral_clock.freq(),
-            16.MHz(),
-            &embedded_hal::spi::MODE_0,
-            true, // Set the M/S bit to slave
-        );
 
+        
+        
         let uart_pins = (
             // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
             pins.gpio0.into_mode::<hal::gpio::FunctionUart>(),
@@ -142,6 +140,7 @@ mod app {
         // 
         // Set up the USB Driver
         // The bus that is used to manage the device and class below
+        
         let usb_bus: &'static _ = 
             c.local
                 .usb_bus
@@ -167,8 +166,8 @@ mod app {
         // Reset the counter
         let counter = Counter::new();
 
-        let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
-        let program = pio_proc::pio_asm!( 
+        // let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
+        /*let program = pio_proc::pio_asm!( 
         "
         .side_set 1",
         ".wrap_target",
@@ -206,11 +205,11 @@ mod app {
         "out pins, 1 side 1 [4]",
         "jmp x-- write_data side 0 [3]",
         ".wrap",
-        ); 
+        ); */
             
-        let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
-        let installed = pio.install(&program.program).unwrap();
-        let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
+        //let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
+        //let installed = pio.install(&program.program).unwrap();
+        /*let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
             .out_pins(1, 1)
             .side_set_pin_base(2)
             .out_sticky(false)
@@ -223,7 +222,7 @@ mod app {
             .in_pin_base(1)
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
-        tx.write(3);
+        tx.write(3); */
             
             
         // Set core to sleep
@@ -249,13 +248,13 @@ mod app {
     // Task that binds to the SPI0 IRQ and handles requests. This will execute from RAM
     // This takes a mutable reference to the SPI bus writes immediately from tx_buffer while reading 
     // into the rx_buffer
-    #[inline(never)]
-    #[link_section = ".data.bar"]
+   // #[inline(never)]
+   // #[link_section = ".data.bar"]
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
     fn spi0_irq(cx: spi0_irq::Context) {
         let mut tx_buf = [1_u16, 2, 3, 4, 5, 6];
         let mut _rx_buf = [0_u16; 6];
-        let _t = cx.local.spi_dev.transfer(&mut tx_buf);    
+        let _t = cx.local.spi_dev.transfer(&mut tx_buf);  
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data

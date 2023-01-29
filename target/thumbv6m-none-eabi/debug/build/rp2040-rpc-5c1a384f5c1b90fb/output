@@ -1,2 +1,0 @@
-cargo:rustc-link-search=c:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\rp2040-rpc-5c1a384f5c1b90fb\out
-cargo:rerun-if-changed=memory.x

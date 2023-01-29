@@ -1,20 +1,20 @@
-; ModuleID = 'probe2.e22f7160-cgu.0'
-source_filename = "probe2.e22f7160-cgu.0"
+; ModuleID = 'probe2.43270726-cgu.0'
+source_filename = "probe2.43270726-cgu.0"
 target datalayout = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64"
 target triple = "thumbv6m-none-unknown-eabi"
 
 ; core::f64::<impl f64>::to_int_unchecked
 ; Function Attrs: inlinehint nounwind
-define dso_local i32 @"_ZN4core3f6421_$LT$impl$u20$f64$GT$16to_int_unchecked17h8ef34f8ea8a2011eE"(double %self) unnamed_addr #0 {
+define dso_local i32 @"_ZN4core3f6421_$LT$impl$u20$f64$GT$16to_int_unchecked17h40c9168a47b949b0E"(double %self) unnamed_addr #0 {
 start:
 ; call <f64 as core::convert::num::FloatToInt<i32>>::to_int_unchecked
-  %0 = call i32 @"_ZN65_$LT$f64$u20$as$u20$core..convert..num..FloatToInt$LT$i32$GT$$GT$16to_int_unchecked17h5613d332fc3ee5f8E"(double %self) #2
+  %0 = call i32 @"_ZN65_$LT$f64$u20$as$u20$core..convert..num..FloatToInt$LT$i32$GT$$GT$16to_int_unchecked17hb90fd1e422f1b0bcE"(double %self) #2
   ret i32 %0
 }
 
 ; <f64 as core::convert::num::FloatToInt<i32>>::to_int_unchecked
 ; Function Attrs: inlinehint nounwind
-define internal i32 @"_ZN65_$LT$f64$u20$as$u20$core..convert..num..FloatToInt$LT$i32$GT$$GT$16to_int_unchecked17h5613d332fc3ee5f8E"(double %self) unnamed_addr #0 {
+define internal i32 @"_ZN65_$LT$f64$u20$as$u20$core..convert..num..FloatToInt$LT$i32$GT$$GT$16to_int_unchecked17hb90fd1e422f1b0bcE"(double %self) unnamed_addr #0 {
 start:
   %0 = alloca i32, align 4
   %1 = fptosi double %self to i32
@@ -25,10 +25,10 @@ start:
 
 ; probe2::probe
 ; Function Attrs: nounwind
-define dso_local void @_ZN6probe25probe17h984c6d598f88a062E() unnamed_addr #1 {
+define dso_local void @_ZN6probe25probe17hd37e2e23f2bf4682E() unnamed_addr #1 {
 start:
 ; call core::f64::<impl f64>::to_int_unchecked
-  %_1 = call i32 @"_ZN4core3f6421_$LT$impl$u20$f64$GT$16to_int_unchecked17h8ef34f8ea8a2011eE"(double 1.000000e+00) #2
+  %_1 = call i32 @"_ZN4core3f6421_$LT$impl$u20$f64$GT$16to_int_unchecked17h40c9168a47b949b0E"(double 1.000000e+00) #2
   ret void
 }
 
