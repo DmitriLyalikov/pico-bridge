@@ -33,6 +33,7 @@ mod app {
     use hal::uart::{UartConfig, DataBits, StopBits};
     use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
     use hal::pac as pac;
+    use hal::pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,};
     use crate::setup::Counter;
     use pac::{SPI0, Interrupt};
     use fugit::RateExtU32;
@@ -158,6 +159,49 @@ mod app {
         // Reset the counter
         let counter = Counter::new();
 
+        let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
+        let program = pio_proc::pio_asm!( 
+        "
+        .side_set 1",
+        ".wrap_target",
+        "set pins, 0   side 0",
+    "start:",
+        "pull block side 0",
+        "set pindirs, 1 side 0",
+        "set x, 31 side 0",
+    "preamble:",
+        "set pins, 1 side 1      [4]",
+        "set pins 1  side 0      [2]",
+        "jmp x-- preamble side 0 [2]",
+        "set pins, 0  side 1     [4]",
+        "nop side 0 [2]",
+        "set y, 11 side 0 [2]",
+        "set pins, 1 side 1 [4]",
+        "nop side 0 [1]",
+    "addr:",
+        "set x, 15 side 0 [3]",
+        "out pins, 1   side 1 [4]",
+        "jmp y-- addr side 0 [1]",
+        "out null 20 side 0  [3]",  // Discard remaining 20 bits of 32 bit word (we wrote first 12 which are OP/PHY/REG fields)
+        "nop side 1 [4]",
+        "nop side 0 [4]",
+        "nop side 1 [4]",
+        "jmp !osre write_data    side 0 [2]", // If Autopull pulled in another word from our TX FIFO, we have data to write
+        "set pindirs, 0 side 0 [2]",
+    "read_data:",
+        "in pins 1 side 1 [4]",
+        "jmp x-- read_data side 0 [4]",
+        "push side 0",
+        "jmp start side 0",
+    "write_data:",
+        "nop side 0 [1]",
+        "out pins, 1 side 1 [4]",
+        "jmp x-- write_data side 0 [3]",
+        ".wrap",
+        ); 
+            
+        let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
+        
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
 
