@@ -17,7 +17,7 @@ Interface bridging in this context is abstracting away the use of each interface
 #### Extensible
 * Interface State Machines can be dynamically loaded and unloaded, depending on the application requirements. 
 * Multiple transport layers are all supported depending on host, (USB Serial, UART/SPI, Standalone SPI)
-
+* Greatly simplifies device peripheral designs, as all interfaces can be managed through a single port. Removes the need for separate board headers for each interface. 
 
 #### Robust, Performant, and Low-Power
 * A purely Rust application, static analysis at compile time guarantees memory safety and thread safe code.
