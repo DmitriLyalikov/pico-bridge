@@ -28,7 +28,7 @@ Interface bridging in this context is abstracting away the use of each interface
 * RPC System Architecture
 <img width="716" alt="image" src="https://user-images.githubusercontent.com/68623356/215372195-838c0ac2-9e39-4127-b480-fc2aa33086c0.png">
 
-### Supported Interfaces
+### DUT Interfaces
 * SPI Master: 4 Modes, Multiple CS, up to system frequency (133 MHz)
 * SMI Master: up to 30 MHz
 * JTAG: TMS, TDO, TDI, and TCK synchronization and TAP state machine traversal precomputed. up to 30 MHz
