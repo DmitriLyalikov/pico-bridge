@@ -37,24 +37,25 @@ mod app {
 
     use rp_pico::hal as hal;
     use rp_pico::pac;
-    use hal::clocks::Clock;
-    use hal::spi;
-    use hal::uart::{UartConfig, DataBits, StopBits};
-    use hal::gpio::{pin::bank0::*, Pin, FunctionUart};
-    use hal::pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,};
-    use pac::{SPI0, Interrupt};
-    use rp_pico::XOSC_CRYSTAL_FREQ;
-    use fugit::RateExtU32;
 
-    const PIO_CLK_DIV_FRAQ: u8 = 255;
-
-    use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
+    use hal::{clocks::Clock,
+        spi,
+        uart::{UartConfig, DataBits, StopBits},
+        gpio::{pin::bank0::*, Pin, FunctionUart},
+        pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,}
+        };
 
     // USB Device support 
     use usb_device::{class_prelude::*, prelude::*};
     // USB Communications Class Device support
     use usbd_serial::SerialPort;
 
+    use rp_pico::XOSC_CRYSTAL_FREQ;
+    use fugit::RateExtU32;
+
+    use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
+
+    const PIO_CLK_DIV_FRAQ: u8 = 255;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -121,10 +122,7 @@ mod app {
         let spi = hal::Spi::<_, _, 16>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
         let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
-        
-
-        
-        
+          
         let uart_pins = (
             // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
             pins.gpio0.into_mode::<hal::gpio::FunctionUart>(),
@@ -229,10 +227,7 @@ mod app {
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
         let smi_master = sm.start();
-        
-        
-            
-            
+               
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
 
@@ -318,6 +313,4 @@ mod app {
             rtic::export::wfi()
         }
     }
-
-    
 }
