@@ -35,10 +35,10 @@ Interface bridging in this context is abstracting away the use of each interface
     2. [Probe Setup](#probe-setup)
     3. [Hardware Setup](#hardware-setup)
 3. [Usage](#usage)
-4. [RPC Requests]
-5. [Host Configurations]
-6. [Interface Defaults]
-7. [Testing]
+4. [RPC Requests](#RPC-Requests)
+5. [Host Configurations](#Host-Configurations)
+6. [Interface Defaults](#Interface Defaults)
+7. [Testing](#Testing)
 8. [Appendix](#appendix)
 
 ## Requirements
