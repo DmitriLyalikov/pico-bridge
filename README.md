@@ -32,8 +32,7 @@ Interface bridging in this context is abstracting away the use of each interface
 1. [Requirements](#requirements)
 2. [Setup](#setup)
     1. [System Setup](#system-setup)
-    2. [Probe Setup](#probe-setup)
-    3. [Hardware Setup](#hardware-setup)
+    2. [Hardware Setup](#hardware-setup)
 3. [Usage](#usage)
 4. [RPC Requests](#RPC-Requests)
 5. [Host Configurations](#Host-Configurations)
@@ -43,69 +42,14 @@ Interface bridging in this context is abstracting away the use of each interface
 
 ## Requirements
 * Raspberry Pi Pico
-* Debug Probe (*or* another Raspberry Pi Pico)
-* Rust Toolchain ([`cargo`][8], [`rustup`][15])
+* Application Release .uf2 file 
 
 ## Setup
 ### System Setup
-1. Install [Rust][3] and [`cargo`][8] using [`rustup`][15]
-```shell
-# Install `rustup` for Rust Toolchain
-$ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
 
-2. Install Cortex-M Target Toolchain Support for [`Rust`][3]
-```shell
-# Install `thumbv6m-none-eabi` Target for `rp2040`
-$ rustup target add thumbv6m-none-eabi
-```
-
-3. Install [`probe-run`][7]
-```shell
-# Install Linux Dependencies
-$ sudo apt install -y libusb-1.0-0-dev libudev-dev
-
-# Install `probe-run`
-$ cargo install probe-run
-
-# (Optional) Install `udev` Rules and Reload
-$ sudo curl https://probe.rs/files/69-probe-rs.rules -o /etc/udev/rules.d/69-probe-rs.rules
-$ sudo udevadm control --reload
-$ sudo udevadm trigger
-
-# (Optional) Add User to `plugdev` Group
-$ sudo usermod -aG plugdev $USER
-```
-
-4. Install [`flip-link`][6]
-```shell
-# Install `flip-link`
-$ $ cargo install flip-link
-```
-
-### Probe Setup
-You can use a Raspberry Pi Pico as a CMSIS-DAP debug probe.
-
-1. Download CMSIS-DAP debugger firmware [`DapperMime`][16] for the Raspberry Pi Pico
-2. Boot the Raspberry Pi Pico in "Bootloader Mode" by holding the _BOOTSEL_ button while plugging it in
-3. Open the mounted Raspberry Pi Pico storage device
-4. Copy the `raspberry_pi_pico-DapperMime.uf2` onto the Raspberry Pi Pico
-5. Firmware will be flashed to the Raspberry Pi Pico and it will disconnect
-
-Any [`probe-rs`][9] compatible debug probe can be used with [`probe-run`][7]. For a short list of alternative
-compatible debug probes see: [Alternative Debug Probes][17].
 
 ### Hardware Setup
 #### Connecting the Raspberry Pi Pico Debug Probe
-The diagram below shows the wiring loom between Raspberry Pi Pico A (left) and Raspberry Pi Pico B (right), configuring
-Raspberry Pi Pico A as a debug probe.
-
-<!-- Embed Image -->
-<p align="center">
-  <img width=50% src="https://user-images.githubusercontent.com/62866982/191892108-daabc0d6-5ec1-4265-8722-226c512b995c.svg">
-</p>
-
-The connections shown in the diagram above are listed below.
 
 ```
 Pico A GND -> Pico B GND
@@ -115,29 +59,6 @@ Pico A GP4/UART1 TX -> Pico B GP1/UART0 RX
 Pico A GP5/UART1 RX -> Pico B GP0/UART0 TX
 Pico A VSYS -> Pico B VSYS
 ```
-
-For more information on connecting the two Raspberry Pi Picos, the wiring loom between them and its connections, see
-the section _Appendix A > Wiring Loom_ in: [Getting Started with Raspberry Pi Pico][18]
-
-#### Raspberry Pi Pico Dev Board
-Alternatively, a custom printed Raspberry Pi Pico Dev Board can be used to enhance development, which includes:
-
-* Debug Probe Host (Raspberry Pi Pico)
-* Detachable Target (Raspberry Pi Pico)
-* Serial Interface
-* Reset Button
-* Breakout Pins
-* Selection of _VSys_ or _VBus_ Power Sources
-
-The custom printed Raspberry Pi Pico Dev board is shown below:
-
-<!-- Embed Image -->
-<p align="center">
-  <img width=50% src="https://user-images.githubusercontent.com/62866982/191941119-a21dd273-d29b-49a5-8daf-5e4429268965.png">
-</p>
-
-For more information on printing your own custom Raspberry Pi Pico Dev Board, see:
-[Raspberry Pi Pico Dev Board][19]
 
 ## Usage
 #### Running
@@ -151,18 +72,6 @@ To run the firmware in release mode:
 $ cargo run --release
 ```
 
-#### Logging
-To change the default [`defmt`][5] log level, see `.cargo/config.toml`:
-```toml
-[env]
-DEFMT_LOG = "trace"
-```
-
-You can also set the log level inline:
-```shell
-$ DEFMT_LOG=debug cargo run
-$ DEFMT_LOG=error cargo run --release
-```
 ## RPC Requests
 TODO add the menu and possible commands that can be called and how to use them across each host transport
 ## Host Configurations
