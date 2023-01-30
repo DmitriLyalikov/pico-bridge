@@ -50,7 +50,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
-    use crate::protocol::protocol_spi::Request;
+    use crate::protocol::protocol_spi::*;
 
     /// Clock divider for the PIO SM
     const PIO_CLK_DIV_INT: u16 = 1;
@@ -102,6 +102,9 @@ mod app {
         .ok()
         .unwrap();
 
+        let mut spi_message = Request::new();
+        
+    
         // The single-cycle I/O block controls our GPIO pins
         let sio = hal::Sio::new(c.device.SIO);
 

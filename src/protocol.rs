@@ -1,45 +1,19 @@
-
+// Check if this must implement send and sync
 pub mod protocol_spi {
-    use core::{convert::Infallible, marker::PhantomData, ops::Deref};
+    use core::{marker::PhantomData};
     // State of the request
     pub trait State {}
-    pub trait Interface {}
     // request has not been validated
     pub struct Unclean {
         __private: (),
     }
-
     // The request has been validated
     pub struct Clean {
         __private: (),
     }
 
-    pub struct None {
-        __private: (),
-    }
-    pub struct SMI {
-        __private: (),
-    }
-
-    pub struct JTAG {
-        __private: (),
-    }
-    pub struct Config {
-        __private: (),
-    }
-    pub struct SPI {
-        __private: (),
-    }
-
     impl State for Unclean {}
     impl State for Clean {}
-
-    impl Interface for None {}
-    impl Interface for SMI {}
-    impl Interface for JTAG {}
-    impl Interface for Config {}
-    impl Interface for SPI {}
-    
 
     pub trait PIODriver {
         
@@ -52,34 +26,47 @@ pub mod protocol_spi {
         GetClk,
     }
 
-    pub struct Request<S: State, I: Interface> {
+    pub enum ValidInterfaces  {
+        None,
+        SMI,
+        JTAG, 
+        I2C,
+        SPI,
+        Config,
+    }
+
+    pub struct Request<S: State> {
         state: PhantomData<S>,
-        interface: PhantomData<I>,
         proc_id: u8,
+        interface: ValidInterfaces,
         operation: ValidOps,
         size: u8,             // A value between 0 and 4
         payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
+
     }
 
-    impl <S: State, I: Interface> Request<S, I>{
-        fn transition<To: State>(self, _: To) -> Request<To, I> {
+    impl <S: State> Request<S>{
+        fn transition<To: State>(self, _: To) -> Request<To> {
             Request {
                 state: PhantomData,
-                interface: PhantomData,
                 proc_id: self.proc_id,
+                interface: self.interface,
                 operation: self.operation,
                 size: self.size,       
                 payload: self.payload,
             }
         }
+
     }
 
-    impl <I: Interface> Request<Unclean, I> {
-        pub fn new() -> Request<Unclean, I> {
+
+    
+    impl Request<Unclean> {
+        pub fn new() -> Request<Unclean> {
             Request {
                 state: PhantomData,
-                interface: PhantomData,
                 proc_id: 0_u8,
+                interface: ValidInterfaces::None,
                 operation: ValidOps::None,
                 size: 0_u8,           
                 payload: [0_u8; 4],
@@ -105,12 +92,15 @@ pub mod protocol_spi {
             self.payload =  payload;
         }
 
-        pub fn init_clean(mut self) -> Request<Clean, I> {
+        pub fn set_interface(&mut self, interface: ValidInterfaces) {
+            self.interface = interface;
+        }
+
+        pub fn init_clean(mut self) -> Request<Clean> {
             // if let valid_packet = check_crc(self.crc) ...
             // Any other kind of packet sanitizing
             self.transition(Clean {__private: () })
-            
-        }
+        } 
     }
 
 
