@@ -69,6 +69,10 @@ mod app {
         serial: SerialPort<'static, hal::usb::UsbBus>,
         usb_dev: usb_device::device::UsbDevice<'static, hal::usb::UsbBus>,
 
+        smi_master: hal::pio::StateMachine<(pac::PIO0, SM0), hal::pio::Running>,
+        smi_tx: hal::pio::Tx<(pac::PIO0, SM0)>,
+        smi_rx: hal::pio::Rx<(pac::PIO0, SM0)>,
+
         counter: Counter,
     }
 
@@ -211,7 +215,7 @@ mod app {
             
         let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
         let installed = pio.install(&program.program).unwrap();
-        let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
+        let (mut sm, mut smi_rx, mut smi_tx) = PIOBuilder::from_program(installed)
             .out_pins(1, 1)
             .side_set_pin_base(2)
             .out_sticky(false)
@@ -224,7 +228,9 @@ mod app {
             .in_pin_base(1)
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
-        //tx.write(3); 
+        let smi_master = sm.start();
+        
+        
             
             
         // Set core to sleep
@@ -236,6 +242,10 @@ mod app {
             Shared {
                 serial,
                 usb_dev,
+
+                smi_master,
+                smi_tx,
+                smi_rx,
 
                 counter,
             },
