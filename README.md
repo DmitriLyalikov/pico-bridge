@@ -7,7 +7,7 @@
 The **pico-rtic-rpc** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. firmware for the rp2040 based on the RTIC (Real Time Interrupt Driven Concurrency) embedded framework for Rust.
 firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driven Concurrency environment for [Rust][3].
 
-## What is  Pico RPC? 
+## What is Interface Bridging?
 An 'RPC' request is a multi byte message that specifies the request-id, interface, payload, and CRC-8. 
 This request will be received and payload data will be written to the TX FIFO to the PIO state machine that implements 
 the desired interface (SMI, SPI, JTAG, I2C, etc..)
