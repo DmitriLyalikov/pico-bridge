@@ -17,17 +17,15 @@
 //! 
 //!
 
- use defmt_rtt as _;
+use defmt_rtt as _;
 use panic_halt as _;
 
 mod fmt;
 mod setup;
 
-
 /// Clock divider for the PIO SM
 const PIO_CLK_DIV_INT: u16 = 1;
 const PIO_CLK_DIV_FRAQ: u8 = 255;
-
 
 #[rtic::app(device = rp_pico::pac, peripherals = true)]
 mod app {
@@ -55,6 +53,8 @@ mod app {
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
 
+    /// Clock divider for the PIO SM
+    const PIO_CLK_DIV_INT: u16 = 1;
     const PIO_CLK_DIV_FRAQ: u8 = 255;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
@@ -217,7 +217,7 @@ mod app {
             .out_pins(1, 1)
             .side_set_pin_base(2)
             .out_sticky(false)
-            .clock_divisor_fixed_point(1, PIO_CLK_DIV_FRAQ)
+            .clock_divisor_fixed_point(PIO_CLK_DIV_INT, PIO_CLK_DIV_FRAQ)
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
