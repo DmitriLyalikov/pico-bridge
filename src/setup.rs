@@ -125,7 +125,11 @@ Enter option: ";
     write_serial(serial, menu_str, true);
 }
 
-pub mod standalone_spi {
+pub mod standalone {
+
+    pub trait PIODriver {
+        
+    }
     pub enum Interface {
         None,
         SPI,
@@ -183,7 +187,7 @@ pub mod standalone_spi {
             self.payload =  payload;
         }
 
-        
+
 
 
     }
