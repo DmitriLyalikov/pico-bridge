@@ -9,13 +9,12 @@
 //! Version: 0.0.1
 //! 
 //! TODO: Load, Configure, Start PIO state machines (SMI,JTAG)
+//! TODO: PIO receive/write task
 //! TODO: push init, print_menu, match_usb_serial_buf, and write_serial into a module
 //! TODO: Menu task spawn
 //! TODO: SPI/UART command abstraction and data types 
 //! 
 //! TODO: Clear SPI/UART interrupts
-//! 
-//!
 
 use defmt_rtt as _;
 use panic_halt as _;
@@ -31,7 +30,6 @@ const PIO_CLK_DIV_FRAQ: u8 = 255;
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
-    use embedded_time::fixed_point::FixedPoint;
 
     use rp_pico::hal as hal;
     use rp_pico::pac;
@@ -48,7 +46,6 @@ mod app {
     // USB Communications Class Device support
     use usbd_serial::SerialPort;
 
-    use rp_pico::XOSC_CRYSTAL_FREQ;
     use fugit::RateExtU32;
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
@@ -130,7 +127,7 @@ mod app {
             pins.gpio1.into_mode::<hal::gpio::FunctionUart>(),
         );
 
-        let mut uart = hal::uart::UartPeripheral::new(c.device.UART0, uart_pins, &mut resets)
+        let uart = hal::uart::UartPeripheral::new(c.device.UART0, uart_pins, &mut resets)
         .enable(
             UartConfig::new(9600.Hz(), DataBits::Eight, None, StopBits::One),
             clocks.peripheral_clock.freq(),
@@ -213,7 +210,7 @@ mod app {
             
         let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
         let installed = pio.install(&program.program).unwrap();
-        let (mut sm, mut smi_rx, mut smi_tx) = PIOBuilder::from_program(installed)
+        let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
             .out_pins(1, 1)
             .side_set_pin_base(2)
             .out_sticky(false)
@@ -255,8 +252,8 @@ mod app {
     // Task that binds to the SPI0 IRQ and handles requests. This will execute from RAM
     // This takes a mutable reference to the SPI bus writes immediately from tx_buffer while reading 
     // into the rx_buffer
-   // #[inline(never)]
-   // #[link_section = ".data.bar"]
+    #[inline(never)]
+    #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
     fn spi0_irq(cx: spi0_irq::Context) {
         let mut tx_buf = [1_u16, 2, 3, 4, 5, 6];
@@ -284,7 +281,7 @@ mod app {
                         }
                         Ok(0) => {
                             // Do nothing
-                            let _ = serial_a.write(b"Didn't received data.");
+                            let _ = serial_a.write(b"Didn't received data.\n\r");
                             let _ = serial_a.flush();
                         }
                         // TODO Add OK(_count) response
@@ -299,13 +296,9 @@ mod app {
         }
 
     // Task with least priority that only runs when nothing else is running.
-    #[idle(local = [x: u32 = 0])]
-    fn idle(cx: idle::Context) -> ! {
+    #[idle(local = [])]
+    fn idle(_cx: idle::Context) -> ! {
         // Locals in idle have lifetime 'static
-        let x: &'static mut u32 = cx.local.x;
-
-        //hprintln!("idle").unwrap();
-
         loop {
             // Now Wait For Interrupt is used instead of a busy-wait loop
             // to allow MCU to sleep between interrupts

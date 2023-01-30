@@ -73,27 +73,27 @@ pub fn match_usb_serial_buf(
     match buf[0] {
         // Print Menu
         b'M' | b'm' => {
-            write_serial(serial, "M - Print Menu\n", false);
+            write_serial(serial, "M - Print Menu\n\r", false);
             print_menu(serial);
         }
         // 0 - Reset counter
         b'0' => {
-        write_serial(serial, "M - Print Menu\n", false);
+        write_serial(serial, "M - Print Menu\n\r", false);
             counter.reset();
         }
         // 1 - Increment counter
         b'1' => {
-            write_serial(serial, "1 - Increment counter\n", false);
+            write_serial(serial, "1 - Increment counter\n\r", false);
             counter.increment();
         }
         // 2 - Start continues counter
         b'2' => {
-            write_serial(serial, "2 - Start continues counter\n", false);
+            write_serial(serial, "2 - Start continues counter\n\r", false);
             counter.enable(true);
         }
         // 3 - Stop continues counter
         b'3' => {
-            write_serial(serial, "3 - Stop continues counter\n", false);
+            write_serial(serial, "3 - Stop continues counter\n\r", false);
             counter.enable(false);
         }
         _ => {
@@ -102,7 +102,7 @@ pub fn match_usb_serial_buf(
                 unsafe { core::str::from_utf8_unchecked(buf) },
                 false,
             );
-            write_serial(serial, "Invalid option!\n", false);
+            write_serial(serial, "Invalid option!\n\r", false);
         }
     }
 }
