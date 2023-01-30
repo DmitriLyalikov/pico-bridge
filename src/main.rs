@@ -21,6 +21,7 @@ use panic_halt as _;
 
 mod fmt;
 mod setup;
+mod protocol;
 
 /// Clock divider for the PIO SM
 const PIO_CLK_DIV_INT: u16 = 1;
@@ -49,6 +50,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
+    use crate::protocol::protocol_spi::Request;
 
     /// Clock divider for the PIO SM
     const PIO_CLK_DIV_INT: u16 = 1;
@@ -218,7 +220,7 @@ mod app {
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
-            .pull_threshold(0)
+            .pull_threshold(0)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
             .set_pins(1, 1)
             .in_pin_base(1)
             .build(sm0);
