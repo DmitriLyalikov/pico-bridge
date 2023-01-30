@@ -124,6 +124,12 @@ How to setup communication between the Pico and Host for each interface
 ## Interface Defaults
 Clock rates, pin assignments, etc...
 ## Testing
+Test timing and latency over 1000 transactions with each interface. 
+Total Average Latency 
+Maximum Latency
+Minimum Latency
+Power consumption
+
 
 
 
