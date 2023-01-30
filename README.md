@@ -21,7 +21,7 @@ Interface bridging in this context is abstracting away the use of each interface
 
 #### Robust, Performant, and Low-Power
 * A purely Rust application, static analysis at compile time guarantees memory safety and thread safe code.
-* Built on the RTIC (Real Time Interrupt Driven Concurrency) Framework, tasks are bound to hardware interrupts managed by the Cortex NVIC, with no RTOS kernel overhead. This makes the already rapid Rust application deterministic and linear in its transaction turnaround. See: [`Benchmarks and Profiling`][23]
+* Built on the RTIC (Real Time Interrupt Driven Concurrency) Framework, tasks are bound to hardware interrupts managed by the ARM Cortex NVIC, with no RTOS kernel overhead. This makes the already rapid Rust application deterministic and linear in its transaction turnaround. See: [`Benchmarks and Profiling`][23]
 * This interrupt-driven application enters a low power sleep state when idle. 
 
 
