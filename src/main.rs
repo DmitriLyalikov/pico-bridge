@@ -295,6 +295,9 @@ mod app {
             )
         }
 
+    // Hardware task associated with PIO0_IRQ_0
+    // Takes control of shared state machine and rx fifo of PIO_0 SM_0 
+    // Reads rx fifo into buffer and pushed to queue, spawn software task to return value
     #[task(binds = PIO0_IRQ_0, priority = 3, shared = [smi_master, smi_rx])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
         let smi = cx.shared.smi_master;
