@@ -28,24 +28,6 @@ Interface bridging in this context is abstracting away the use of each interface
 * RPC System Architecture
 <img width="716" alt="image" src="https://user-images.githubusercontent.com/68623356/215372195-838c0ac2-9e39-4127-b480-fc2aa33086c0.png">
 
-
-
-
-
-It includes all of the [`knurling-rs`][4] tooling ([`defmt`][5], [`defmt-rtt`][5], [`panic-probe`][5], [`flip-link`][6],
-[`probe-run`][7]) to enhance the embedded development process.
-
-The default [`cargo`][8] runner is configured as [`probe-run`][7], so you can build, flash and run your firmware _with_
-output from the device via a [`probe-rs`][9] compatible debug probe with the command:
-
-```shell
-$ cargo run
-```
-
-If you want to use a different runner with your debugger (e.g., [`cargo-embed`][10], [`probe-rs-debugger`][11], etc.) or
-if you _aren't_ using a debugger and want the runner to flash the firmware via USB (e.g., [`elf2uf2-rs`][12],
-[`picotool`][13], etc.) then see: [Alternative Runners][14]
-
 ## Table of Contents
 1. [Requirements](#requirements)
 2. [Setup](#setup)
@@ -53,7 +35,11 @@ if you _aren't_ using a debugger and want the runner to flash the firmware via U
     2. [Probe Setup](#probe-setup)
     3. [Hardware Setup](#hardware-setup)
 3. [Usage](#usage)
-6. [Appendix](#appendix)
+4. [RPC Requests]
+5. [Host Configurations]
+6. [Interface Defaults]
+7. [Testing]
+8. [Appendix](#appendix)
 
 ## Requirements
 * Raspberry Pi Pico
@@ -177,6 +163,15 @@ You can also set the log level inline:
 $ DEFMT_LOG=debug cargo run
 $ DEFMT_LOG=error cargo run --release
 ```
+## RPC Requests
+TODO add the menu and possible commands that can be called and how to use them across each host transport
+## Host Configurations
+How to setup communication between the Pico and Host for each interface
+## Interface Defaults
+Clock rates, pin assignments, etc...
+## Testing
+
+
 
 ## Appendix
 #### Documentation
