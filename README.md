@@ -9,13 +9,23 @@ firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driv
 
 
 ### What is Interface Bridging?
-Interface bridging in this context is abstracting away the use of each interface or protocol into the interaction between data and TX/RX FIFOs. The enabling technology for the RP2040 to perform this service are the Programmable I/O State machines that allow high speed, extensible, and customizable "interfaces" to be interacted with as if they were simply hardware drivers. For example, an SMI (Serial Management Interface) state machine has been provided that by writing the Phy Address and Register Address + (data) to its TX FIFO, the system can write and read to the register space of an Ethernet Phy. 
+Interface bridging in this context is abstracting away the use of each interface or protocol into the interaction between data and TX/RX FIFOs. The enabling technology for the RP2040 to perform this service are the Programmable I/O State machines that allow high speed, extensible, and customizable "interfaces" to be interacted with as if they were simply hardware drivers. For example, an SMI (Serial Management Interface) state machine has been provided that by writing the Phy Address and Register Address + (data) to its TX FIFO, the system can write and read to the register space of an Ethernet Phy with precise timing. 
 
 #### Configurable
 * Over the same transport layer between the host and Pico, commands can dynamically set, and read the State Machine configurations such as Clock Rate, Pin Assignments, and disable/enable
 
 #### Extensible
 * Interface State Machines can be dynamically loaded and unloaded, depending on the application requirements. 
+* Multiple transport layers are all supported depending on host, (USB Serial, UART/SPI, Standalone SPI)
+
+
+#### Robust, Performant, and Low-Power
+* A purely Rust application, static analysis at compile time guarantees memory safety and thread safe code.
+* Built on the RTIC (Real Time Interrupt Driven Concurrency) Framework, tasks are bound to hardware interrupts managed by the Cortex NVIC, with no RTOS kernel overhead. This makes the already rapid Rust application deterministic and linear in its transaction turnaround. See: [`Benchmarks and Profiling`][23]
+* This interrupt-driven application enters a low power sleep state when idle. 
+
+
+
 
 It includes all of the [`knurling-rs`][4] tooling ([`defmt`][5], [`defmt-rtt`][5], [`panic-probe`][5], [`flip-link`][6],
 [`probe-run`][7]) to enhance the embedded development process.
