@@ -31,7 +31,6 @@ const PIO_CLK_DIV_FRAQ: u8 = 255;
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
-
     use rp_pico::hal as hal;
     use rp_pico::pac;
 
@@ -42,6 +41,7 @@ mod app {
         pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,}
         };
 
+    use usb_device::control::Request;
     // USB Device support 
     use usb_device::{class_prelude::*, prelude::*};
     // USB Communications Class Device support
@@ -50,7 +50,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
-    use crate::protocol::protocol_spi::*;
+    use crate::protocol::HostRequest;
 
     /// Clock divider for the PIO SM
     const PIO_CLK_DIV_INT: u16 = 1;
@@ -72,6 +72,8 @@ mod app {
         smi_master: hal::pio::StateMachine<(pac::PIO0, SM0), hal::pio::Running>,
         smi_tx: hal::pio::Tx<(pac::PIO0, SM0)>,
         smi_rx: hal::pio::Rx<(pac::PIO0, SM0)>,
+
+        message: HostRequest<crate::protocol::Clean>,
 
         counter: Counter,
     }
@@ -102,7 +104,7 @@ mod app {
         .ok()
         .unwrap();
 
-        let mut spi_message = Request::new();
+        let mut spi_message = HostRequest::new().init_clean();
         
     
         // The single-cycle I/O block controls our GPIO pins
@@ -243,6 +245,8 @@ mod app {
                 smi_master,   // SMI PIO State Machine 
                 smi_tx,       // SMI TX FIFO
                 smi_rx,       // SMI RX FIFO
+
+                message: spi_message,
 
                 counter,
             },

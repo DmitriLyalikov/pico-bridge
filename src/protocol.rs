@@ -1,5 +1,4 @@
 // Check if this must implement send and sync
-pub mod protocol_spi {
     use core::{marker::PhantomData};
     // State of the request
     pub trait State {}
@@ -35,7 +34,7 @@ pub mod protocol_spi {
         Config,
     }
 
-    pub struct Request<S: State> {
+    pub struct HostRequest<S: State> {
         state: PhantomData<S>,
         proc_id: u8,
         interface: ValidInterfaces,
@@ -45,9 +44,9 @@ pub mod protocol_spi {
 
     }
 
-    impl <S: State> Request<S>{
-        fn transition<To: State>(self, _: To) -> Request<To> {
-            Request {
+    impl <S: State> HostRequest<S>{
+        fn transition<To: State>(self, _: To) -> HostRequest<To> {
+            HostRequest {
                 state: PhantomData,
                 proc_id: self.proc_id,
                 interface: self.interface,
@@ -61,9 +60,9 @@ pub mod protocol_spi {
 
 
     
-    impl Request<Unclean> {
-        pub fn new() -> Request<Unclean> {
-            Request {
+    impl HostRequest<Unclean> {
+        pub fn new() -> HostRequest<Unclean> {
+            HostRequest {
                 state: PhantomData,
                 proc_id: 0_u8,
                 interface: ValidInterfaces::None,
@@ -96,12 +95,10 @@ pub mod protocol_spi {
             self.interface = interface;
         }
 
-        pub fn init_clean(mut self) -> Request<Clean> {
+        pub fn init_clean(mut self) -> HostRequest<Clean> {
             // if let valid_packet = check_crc(self.crc) ...
             // Any other kind of packet sanitizing
             self.transition(Clean {__private: () })
         } 
     }
 
-
-}
