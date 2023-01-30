@@ -89,9 +89,12 @@ $ cargo run --release
 #### Programming the Pico
 1. While holding down the BOOTSEL button, plug the Pico into a USB port.
 2. The Pico will appear as a mass storage device in your file navigator.
-3. Drag-and-drop C:\Users\vha3\Pico\pico-examples\build\blink.uf2 to the Pico, as you would if you were 
+3. Drag-and-drop the .uf2 to the Pico, as you would if you were 
 moving a file to a flash drive.
-4. The Pico will automatically reboot, and start running the Blink example, flashing the LED.
+4. The Pico will automatically reboot, and begin the application. It will appear as a Serial USB device which can be accessed with a terminal emulator as well 
+as UART and SPI
+
+### Programming the RP2040
 
 ## RPC Requests
 TODO add the menu and possible commands that can be called and how to use them across each host transport
