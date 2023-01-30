@@ -28,6 +28,18 @@ Interface bridging in this context is abstracting away the use of each interface
 * RPC System Architecture
 <img width="716" alt="image" src="https://user-images.githubusercontent.com/68623356/215372195-838c0ac2-9e39-4127-b480-fc2aa33086c0.png">
 
+### Supported Interfaces
+* SPI Master: 4 Modes, Multiple CS, up to system frequency (133 MHz)
+* SMI Master: up to 30 MHz
+* JTAG: TMS, TDO, TDI, and TCK synchronization and TAP state machine traversal precomputed. up to 30 MHz
+* I2C: up to 133 MHz
+
+### Host Interfaces
+* Serial USB (Using RP2040 built in USB 1.1 Phy and controller stack) Up to 12Mbps. 
+* Serial UART and SPI slave combination. Command specified over UART and associated data transmitted over SPI
+* Multi Packet SPI Slave: protocol based SPI 
+
+
 ## Table of Contents
 1. [Requirements](#requirements)
 2. [Setup](#setup)
@@ -36,6 +48,8 @@ Interface bridging in this context is abstracting away the use of each interface
 3. [Usage](#usage)
 4. [RPC Requests](#RPC-Requests)
 5. [Host Configurations](#Host-Configurations)
+    1. [Standalone SPI](#Standalone-Spi)
+    2. [UART/SPI](#UART/SPI)
 6. [Interface Defaults](#Interface-Defaults)
 7. [Testing](#Testing)
 8. [Appendix](#appendix)
@@ -75,6 +89,8 @@ $ cargo run --release
 ## RPC Requests
 TODO add the menu and possible commands that can be called and how to use them across each host transport
 ## Host Configurations
+### Standalone SPI
+### UART/SPI
 How to setup communication between the Pico and Host for each interface
 ## Interface Defaults
 Clock rates, pin assignments, etc...
