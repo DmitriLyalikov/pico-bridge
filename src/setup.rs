@@ -126,7 +126,6 @@ Enter option: ";
 }
 
 pub mod standalone_spi {
-
     pub enum Interface {
         None,
         SPI,
@@ -135,7 +134,6 @@ pub mod standalone_spi {
         I2C,
         Config       // Not an interface, specifies a system config request
     }
-
     pub enum ValidOps  {
         None,
         Read,
@@ -147,6 +145,7 @@ pub mod standalone_spi {
         proc_id: u8,
         transaction: Interface,
         operation: ValidOps,
+        size: u8,             // A value between 0 and 4
         payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
     }
 
@@ -156,11 +155,10 @@ pub mod standalone_spi {
                 proc_id: 0_u8,
                 transaction: Interface::None,
                 operation: ValidOps::None,
-
+                size: 0_u8,           
                 payload: [0_u8; 4],
             }
         }
-    
         pub fn set_proc_id(&mut self, proc_id: u8) {
             self.proc_id =  proc_id;
         }
@@ -173,11 +171,21 @@ pub mod standalone_spi {
             self.operation =  op;
         }
 
+        pub fn set_size(&mut self, size: u8) {
+            if size > 4 {
+                // Assert or log that data size too large
+                self.size = 4;
+            }
+            self.size = size
+        }
+
         pub fn set_payload(&mut self, payload: [u8; 4]) {
             self.payload =  payload;
         }
 
         
+
+
     }
 }
 
