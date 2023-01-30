@@ -90,6 +90,24 @@ $ cargo run --release
 TODO add the menu and possible commands that can be called and how to use them across each host transport
 ## Host Configurations
 ### Standalone SPI
+
+The transport layer used between Host application and RP2040 is an enhanced protocol-based-SPI, where the host acts as a 
+Master initiating a transaction and the RP2040 is a slave. A valid transaction between the Master and Slave in this 
+protocol specifies the PIO interface to be used, and a payload of data to send to that interface, and a return message 
+with the response of the DUT and a status code indicating no faults within the slave process. 
+There is an inherent latency between the receiving of this message and the forwarding to the interface, DUT
+response, and sending this response back the host. To account for this async transaction, 
+the SPI slave puts the master into a polling mode by returning a slave_busy code until a DUT response is ready. The 
+Master will clock in the slave_busy code until a response is ready, this is non-blocking, as the master does not need to assert CS. 
+When in a ready state, the slave will shift out a ready_code to acknowledge with the master that it has a response ready. The master will then 
+by synchronized with the response packet and allow for the proper slave transmission.
+
+This process also guarantees that queued transactions are processed in the order they are received from the host. 
+To differentiate transactions from each other, each transaction is given a unique process_id that is passed across 
+each process and returned to the host. It is also given an 8-Bit CRC for primitive error checking on the slave side. If 
+a CRC fail is computed incorrectly, the slave will return an rx_invalid code to the master, and the transaction will be 
+terminated before reaching the DUT. To minimize processing latency within tight timing requirements, these are 
+the few mechanisms to ensure correctness. The complete packet typedefs can be seen in mod transaction in lib.rs.
 ### UART/SPI
 How to setup communication between the Pico and Host for each interface
 ## Interface Defaults
