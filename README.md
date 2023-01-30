@@ -24,6 +24,11 @@ Interface bridging in this context is abstracting away the use of each interface
 * Built on the RTIC (Real Time Interrupt Driven Concurrency) Framework, tasks are bound to hardware interrupts managed by the ARM Cortex NVIC, with no RTOS kernel overhead. This makes the already rapid Rust application deterministic and linear in its transaction turnaround. See: [`Benchmarks and Profiling`][23]
 * This interrupt-driven application enters a low power sleep state when idle. 
 
+### Remote Procedure Call
+* RPC System Architecture
+<img width="716" alt="image" src="https://user-images.githubusercontent.com/68623356/215372195-838c0ac2-9e39-4127-b480-fc2aa33086c0.png">
+
+
 
 
 
