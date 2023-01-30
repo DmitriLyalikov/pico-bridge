@@ -16,6 +16,7 @@ Interface bridging in this context is abstracting away the use of each interface
 
 #### Extensible
 * Interface State Machines can be dynamically loaded and unloaded, depending on the application requirements. 
+* Users can implement additional interfaces as needed, ie: [An awesome RMII PIO implementation][26].
 * Multiple transport layers are all supported depending on host, (USB Serial, UART/SPI, Standalone SPI)
 * Greatly simplifies device peripheral designs, as all interfaces can be managed through a single port. Removes the need for separate board headers for each interface. 
 
@@ -182,3 +183,4 @@ Clock rates, pin assignments, etc...
 [23]: https://embedded-trainings.ferrous-systems.com/
 [24]: https://github.com/ferrous-systems/teaching-material
 [25]: https://github.com/rp-rs/rp2040-project-template
+[26]: https://github.com/sandeepmistry/pico-rmii-ethernet
