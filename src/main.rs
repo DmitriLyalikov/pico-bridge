@@ -295,6 +295,17 @@ mod app {
             )
         }
 
+    #[task(binds = PIO0_IRQ_0, priority = 3, shared = [smi_master, smi_rx])]
+    fn pio_sm_rx(cx: pio_sm_rx::Context) {
+        let smi = cx.shared.smi_master;
+        let rx = cx.shared.smi_rx;
+
+        (smi, rx).lock(
+            |smi_a, rx_a| {
+                rx_a.read();
+            }
+        )
+    }
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [])]
     fn idle(_cx: idle::Context) -> ! {
