@@ -70,12 +70,15 @@ pub fn match_usb_serial_buf(
     counter: &mut Counter,
 ) {
     let _buf_len = buf.len();
-    match buf[0] {
+    //write_serial((serial), buf[0:], false);
+    match buf[0..1] {
         // Print Menu
-        b'M' | b'm' => {
+        [b'S', b'm'] | [b'S', b'm'] => {
+
             write_serial(serial, "M - Print Menu\n\r", false);
             print_menu(serial);
         }
+        /* 
         // 0 - Reset counter
         b'0' => {
         write_serial(serial, "M - Print Menu\n\r", false);
@@ -95,7 +98,7 @@ pub fn match_usb_serial_buf(
         b'3' => {
             write_serial(serial, "3 - Stop continues counter\n\r", false);
             counter.enable(false);
-        }
+        } */
         _ => {
             write_serial(
                 serial,

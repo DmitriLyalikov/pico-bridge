@@ -297,6 +297,7 @@ mod app {
                         }
                         // TODO Add OK(_count) response
                         Ok(_count) => {
+                            
                             match_usb_serial_buf(&buf, serial_a, counter_a);   
                         // }
                     }
