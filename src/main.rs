@@ -75,6 +75,8 @@ mod app {
 
         message: HostRequest<crate::protocol::Clean>,
 
+        serial_buf: [u8; 64],
+
         counter: Counter,
     }
 
@@ -231,6 +233,8 @@ mod app {
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
         let smi_master = sm.start();
+
+        let serial_buf = [0_u8; 64];
                
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
@@ -247,6 +251,8 @@ mod app {
                 smi_rx,       // SMI RX FIFO
 
                 message: spi_message,
+
+                serial_buf,
 
                 counter,
             },
@@ -273,17 +279,18 @@ mod app {
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
-    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter])]
+    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter, serial_buf])]
     fn usb_rx(cx: usb_rx::Context) {
         let usb_dev = cx.shared.usb_dev;
         let serial = cx.shared.serial;
         let counter = cx.shared.counter;
+        let serial_buf = cx.shared.serial_buf;
 
-        (usb_dev, serial, counter).lock(
-            |usb_dev_a, serial_a, counter_a| {
+        (usb_dev, serial, counter, serial_buf).lock(
+            |usb_dev_a, serial_a, counter_a, serial_buf| {
                 // Check for new data
                 if  usb_dev_a.poll(&mut [serial_a]) {
-                    let mut buf = [0u8; 64];
+                    let mut buf = [0u8; 4];
                     match serial_a.read(&mut buf) {
                         Err(_e) => {
                             // Do nothing
@@ -297,9 +304,33 @@ mod app {
                         }
                         // TODO Add OK(_count) response
                         Ok(_count) => {
-                            
-                            match_usb_serial_buf(&buf, serial_a, counter_a);   
-                        // }
+                            let index = counter_a.get() as usize;
+                            match buf[0] {
+                                // Check if return key was given \n, if so a command was given.
+                                b'\n' => { match_usb_serial_buf(&serial_buf, serial_a, index); 
+                                // Reset the buffer
+                                for i in 0..serial_buf.len() {
+                                    serial_buf[i] = 0;
+                                }
+                                counter_a.reset();
+                            }
+                            _ => { 
+                                let next_index = serial_buf.iter().position(|&x| x == 0);
+                                match next_index {
+                                    Some(next_index) => { serial_buf[next_index] = buf[0]; 
+                                    counter_a.increment();
+                                    }
+                                    // Edge case where buffer may be full of characters. This should not ever happen
+                                    None => {
+                                        for i in 0..serial_buf.len() {
+                                            serial_buf[i] = 0;
+                                        }
+                                    }
+                                }
+                                
+                            }
+                             
+                        }
                     }
                     }
                 }

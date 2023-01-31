@@ -67,11 +67,11 @@ pub fn match_usb_serial_buf(
     buf: &[u8; 64],
     // Add any accessed 'static peripherals (PIO, SPI, etc) that will be controlled by host
     serial: &mut SerialPort<'static, hal::usb::UsbBus>,
-    counter: &mut Counter,
+    index: usize,
 ) {
     let _buf_len = buf.len();
     //write_serial((serial), buf[0:], false);
-    match buf[0..1] {
+    match buf[0..index] {
         // Print Menu
         [b'S', b'm'] | [b'S', b'm'] => {
 
