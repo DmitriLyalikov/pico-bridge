@@ -15,9 +15,6 @@
     impl State for Unclean {}
     impl State for Clean {}
 
-    pub trait PIODriver {
-        
-    }
     pub enum ValidOps  {
         None,
         Read,
@@ -40,6 +37,7 @@
         proc_id: u8,
         interface: ValidInterfaces,
         operation: ValidOps,
+        checksum: u8,         // Wrapping checksum
         size: u8,             // A value between 0 and 4
         payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
 
@@ -52,6 +50,7 @@
                 proc_id: self.proc_id,
                 interface: self.interface,
                 operation: self.operation,
+                checksum: self.checksum,
                 size: self.size,       
                 payload: self.payload,
             }
@@ -66,6 +65,7 @@
                 proc_id: 0_u8,
                 interface: ValidInterfaces::None,
                 operation: ValidOps::None,
+                checksum: 0_u8,
                 size: 0_u8,           
                 payload: [0_u8; 4],
             }
@@ -90,12 +90,16 @@
             self.payload =  payload;
         }
 
+        pub fn set_checksum(&mut self, checksum: u8) {
+            self.checksum =  checksum;
+        }
+
         pub fn set_interface(&mut self, interface: ValidInterfaces) {
             self.interface = interface;
         }
 
         pub fn init_clean(mut self) -> HostRequest<Clean> {
-            // if let valid_packet = check_crc(self.crc) ...
+            // if let valid_packet = checksum(self.checksum) ...
             // Any other kind of packet sanitizing
             self.transition(Clean {__private: () })
         } 
