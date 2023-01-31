@@ -112,7 +112,6 @@ src/protocol.rs:
         checksum: u8,         // Wrapping checksum
         size: u8,             // A value between 0 and 4
         payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
-
     }
 ```
 
