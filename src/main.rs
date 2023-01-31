@@ -290,7 +290,7 @@ mod app {
             |usb_dev_a, serial_a, counter_a, serial_buf| {
                 // Check for new data
                 if  usb_dev_a.poll(&mut [serial_a]) {
-                    let mut buf = [0u8; 4];
+                    let mut buf = [0u8; 64];
                     match serial_a.read(&mut buf) {
                         Err(_e) => {
                             // Do nothing
@@ -304,6 +304,9 @@ mod app {
                         }
                         // TODO Add OK(_count) response
                         Ok(_count) => {
+                            // let index = counter_a.get() as usize;
+                            match_usb_serial_buf(&buf, serial_a, 63);
+                            /* 
                             let index = counter_a.get() as usize;
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
@@ -325,16 +328,15 @@ mod app {
                                         for i in 0..serial_buf.len() {
                                             serial_buf[i] = 0;
                                         }
-                                    }
-                                }
+                                        counter_a.reset();
+                                    } */
+                            
                                 
                             }
-                             
+                 
                         }
-                    }
-                    }
-                }
-                }
+                    } 
+                } 
             )
         }
 

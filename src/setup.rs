@@ -70,35 +70,36 @@ pub fn match_usb_serial_buf(
     index: usize,
 ) {
     let _buf_len = buf.len();
-    //write_serial((serial), buf[0:], false);
-    match buf[0..index] {
+
+    match buf[0] {
         // Print Menu
-        [b'S', b'm'] | [b'S', b'm'] => {
+        
+        b'M' | b'm' => {
 
             write_serial(serial, "M - Print Menu\n\r", false);
             print_menu(serial);
-        }
-        /* 
+        } 
+         
         // 0 - Reset counter
         b'0' => {
         write_serial(serial, "M - Print Menu\n\r", false);
-            counter.reset();
+            //counter.reset();
         }
         // 1 - Increment counter
         b'1' => {
             write_serial(serial, "1 - Increment counter\n\r", false);
-            counter.increment();
+            // counter.increment();
         }
         // 2 - Start continues counter
         b'2' => {
             write_serial(serial, "2 - Start continues counter\n\r", false);
-            counter.enable(true);
+            // counter.enable(true);
         }
         // 3 - Stop continues counter
         b'3' => {
             write_serial(serial, "3 - Stop continues counter\n\r", false);
-            counter.enable(false);
-        } */
+            // counter.enable(false);
+        } 
         _ => {
             write_serial(
                 serial,
