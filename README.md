@@ -102,6 +102,7 @@ TODO add the menu and possible commands that can be called and how to use them a
 ## Host Configurations
 ### Standalone SPI
 
+src/protocol.rs: 
 ```
     pub struct HostRequest<S: State> {
         state: PhantomData<S>,
@@ -113,7 +114,6 @@ TODO add the menu and possible commands that can be called and how to use them a
         payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
 
     }
-    
 ```
 
 The transport layer used between Host application and RP2040 is an enhanced protocol-based-SPI, where the host acts as a 
