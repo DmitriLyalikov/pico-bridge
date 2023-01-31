@@ -1,5 +1,6 @@
 // Check if this must implement send and sync
     use core::{marker::PhantomData};
+    use core::{mem, slice};
     // State of the request
     pub trait State {}
     // request has not been validated
@@ -57,8 +58,6 @@
         }
 
     }
-
-
     
     impl HostRequest<Unclean> {
         pub fn new() -> HostRequest<Unclean> {
@@ -101,4 +100,41 @@
             self.transition(Clean {__private: () })
         } 
     }
+
+mod SlaveResponse {
+    pub enum SlaveCode {
+        NotReady,
+        Ready,
+        Sync,
+    }
+}
+
+/// Sums all the bytes of a data structure
+pub fn sum<T>(data: &T) -> u8 {
+    let ptr = data as *const _ as *const u8;
+    let len = mem::size_of::<T>();
+
+    let data = unsafe { slice::from_raw_parts(ptr, len) };
+
+    sum_slice(data)
+}
+
+/// Sums all the bytes in an array
+pub fn sum_slice(data: &[u8]) -> u8 {
+    data.iter().fold(0, |a, &b| a.wrapping_add(b))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_sum() {
+        struct Simple(u32, u32);
+
+        let simple = Simple(0xAA_00_BB_00, 0xAA_00_00_00);
+
+        assert_eq!(sum(&simple), 15);
+    }
+}
 
