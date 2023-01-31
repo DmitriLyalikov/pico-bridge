@@ -102,6 +102,20 @@ TODO add the menu and possible commands that can be called and how to use them a
 ## Host Configurations
 ### Standalone SPI
 
+```
+    pub struct HostRequest<S: State> {
+        state: PhantomData<S>,
+        proc_id: u8,
+        interface: ValidInterfaces,
+        operation: ValidOps,
+        checksum: u8,         // Wrapping checksum
+        size: u8,             // A value between 0 and 4
+        payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
+
+    }
+    
+```
+
 The transport layer used between Host application and RP2040 is an enhanced protocol-based-SPI, where the host acts as a 
 Master initiating a transaction and the RP2040 is a slave. A valid transaction between the Master and Slave in this 
 protocol specifies the PIO interface to be used, and a payload of data to send to that interface, and a return message 
