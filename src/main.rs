@@ -83,7 +83,7 @@ mod app {
 
         // A single Message struct that is constructed when a command is given
         // TODO: Place in queue
-        message: HostRequest<crate::protocol::Clean>,
+        // message: HostRequest<crate::protocol::Unclean>,
 
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
@@ -94,7 +94,7 @@ mod app {
 
     #[local]
     struct Local {
-        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
+        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
     }
 
@@ -118,7 +118,6 @@ mod app {
         .ok()
         .unwrap();
 
-        let mut spi_message = HostRequest::new().init_clean();
         // The single-cycle I/O block controls our GPIO pins
         let sio = hal::Sio::new(c.device.SIO);
 
@@ -135,7 +134,7 @@ mod app {
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_miso = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_cs = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
-        let spi = hal::Spi::<_, _, 16>::new(c.device.SPI0);
+        let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
         let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
           
@@ -260,7 +259,7 @@ mod app {
                 smi_tx,       // SMI TX FIFO
                 smi_rx,       // SMI RX FIFO
 
-                message: spi_message,
+                // message: spi_message,
 
                 serial_buf,
                 counter,
@@ -280,9 +279,15 @@ mod app {
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
     fn spi0_irq(cx: spi0_irq::Context) {
-        let mut tx_buf = [1_u16, 2, 3, 4, 5, 6];
+        let mut tx_buf = [1_u8, 2, 3, 4, 5, 6];
         let mut _rx_buf = [0_u8; 6];
-        let _t = cx.local.spi_dev.transfer(&mut tx_buf);
+        let rx = cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
+        // Received bytes, Now build our HostRequest
+        let mut message = HostRequest::new();
+        message.set_proc_id(rx[0]);
+        message.set_interface(rx[1]);
+        message.set_operation(ValidOps::);
+        message.set_payload()
         
         
     }

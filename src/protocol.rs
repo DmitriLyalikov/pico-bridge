@@ -16,20 +16,20 @@
     impl State for Clean {}
 
     pub enum ValidOps  {
-        None,
-        Read,
-        Write, 
-        SetClk,
-        GetClk,
+        None = 0b000,
+        Read = 0b001,
+        Write = 0b010, 
+        SetClk = 0b011,
+        GetClk = 0b100,
     }
 
     pub enum ValidInterfaces  {
-        None,
-        SMI,
-        JTAG, 
-        I2C,
-        SPI,
-        Config,
+        None = 0b000,
+        SMI = 0b001,
+        JTAG = 0b010, 
+        I2C = 0b011,
+        SPI = 0b100,
+        Config = 0b101,
     }
 
     pub struct HostRequest<S: State> {
