@@ -52,11 +52,9 @@ mod app {
 
     use fugit::RateExtU32;
 
-    use crate::fmt::Wrapper;
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
     use crate::protocol::HostRequest;
     use core::str;
-    use core::str::from_utf8;
 
 
     /// Clock divider for the PIO SM
@@ -87,8 +85,9 @@ mod app {
         // TODO: Place in queue
         message: HostRequest<crate::protocol::Clean>,
 
-        serial_buf: [u8; 64],
         // String command that will be received over serial and must be matched
+        serial_buf: [u8; 64],
+        
         // Used for internal logic in USB_IRQ to count characters.
         counter: Counter,
     }
@@ -120,8 +119,6 @@ mod app {
         .unwrap();
 
         let mut spi_message = HostRequest::new().init_clean();
-        
-    
         // The single-cycle I/O block controls our GPIO pins
         let sio = hal::Sio::new(c.device.SIO);
 
@@ -188,9 +185,6 @@ mod app {
 
         // Reset the counter
         let counter = Counter::new();
-        // let mut command = str::from_utf8(&[0]).unwrap();
-        let mut command = "hello";
-        
 
         let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
@@ -269,9 +263,6 @@ mod app {
                 message: spi_message,
 
                 serial_buf,
-
-                //command,
-
                 counter,
             },
             Local {
@@ -312,26 +303,18 @@ mod app {
                     match serial_a.read(&mut buf) {
                         Err(_e) => {
                             // Do nothing
-                            // let _ = serial_a.write(b"Error Reading in Data");
-                            // let _ = serial_a.flush();
                         }
                         Ok(0) => {
                             // Do nothing
                             let _ = serial_a.write(b"Didn't received data.\n\r");
                             let _ = serial_a.flush();
                         }
-                        // TODO Add OK(_count) response
+                        // TODO Add backspace function
                         Ok(_count) => {
-                            let index = counter_a.get() as usize;
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
                                 b'\r' => { 
-                                    // let command = str::from_utf8(serial_buf).unwrap();
-                                    // write_serial(serial_a, command, false);
-                                    
-                                    match_usb_serial_buf(serial_buf, serial_a, index); 
-                                    // Reset the buffer
-                                   // print_menu(serial_a);
+                                    match_usb_serial_buf(serial_buf, serial_a); 
                                     // Reset serial buffer
                                     for elem in serial_buf.iter_mut() {
                                         *elem = 0;
@@ -340,17 +323,17 @@ mod app {
                                 }
 
                                 _ => {
+                                    // Add the byte to the front of the serial_buf buffer, building the command
                                     let first_zero = serial_buf.iter().position(|&x| x == 0);
-                                    match(first_zero) {
+                                    match first_zero {
                                         Some(Index) => { serial_buf[Index] = buf[0]; }
-                                        
-                                        _ => { 
+                                        None => { // This means buffer is completely full (should not happen)
                                             for elem in serial_buf.iter_mut() {
                                                 *elem = 0;
                                             }
                                         }
                                     }
-
+                                    // Print the single byte that was written so user can see type
                                     let command = str::from_utf8(&mut buf[0..1]).unwrap();
                                     write_serial(serial_a, command, false);
                                 }

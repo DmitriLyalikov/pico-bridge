@@ -69,7 +69,6 @@ pub fn match_usb_serial_buf(
     buf: &[u8; 64],
     // Add any accessed 'static peripherals (PIO, SPI, etc) that will be controlled by host
     serial: &mut SerialPort<'static, hal::usb::UsbBus>,
-    index: usize,
 ) {
     let buf =  str::from_utf8(buf).unwrap();
     write_serial(serial, "\n\r", false);
@@ -82,31 +81,9 @@ pub fn match_usb_serial_buf(
         // write_serial(serial, "success\n\r", false);
         print_menu(serial);
     }
-    /*  
-    match buf {
-        // Print Menu
-        "M" | "m" => { write_serial(serial, "success\n\r", false);}
-        
-        "SMI" | "smi" => {
-
-            write_serial(serial, "success\n\r", false);
-            print_menu(serial);
-        } 
-         
-        // 0 - Reset counter
-        "help" => {
-        write_serial(serial, buf, false);
-            //counter.reset();
-        }
-        _ => {
-            write_serial(
-                serial,
-                buf,
-                false,
-            );
-            write_serial(serial, "Invalid option!\n\r", false);
-        } 
-    } */
+    else {
+        write_serial(serial, "Invalid Command! \n\r", false);
+    }
 }
 
 pub fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
