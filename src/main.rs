@@ -14,6 +14,9 @@
 //! TODO: Menu task spawn
 //! TODO: SPI/UART command abstraction and data types 
 //! 
+//! 
+//! TODO: Assert IRQ on SMI reads
+//! TODO: create shared string, make match_serial_buf take a string argument and match on those strings
 //! TODO: Clear SPI/UART interrupts
 
 use defmt_rtt as _;
@@ -49,8 +52,12 @@ mod app {
 
     use fugit::RateExtU32;
 
+    use crate::fmt::Wrapper;
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
     use crate::protocol::HostRequest;
+    use core::str;
+    use core::str::from_utf8;
+
 
     /// Clock divider for the PIO SM
     const PIO_CLK_DIV_INT: u16 = 1;
@@ -69,14 +76,20 @@ mod app {
         serial: SerialPort<'static, hal::usb::UsbBus>,
         usb_dev: usb_device::device::UsbDevice<'static, hal::usb::UsbBus>,
 
+        // SMI PIO StateMachine Instance
         smi_master: hal::pio::StateMachine<(pac::PIO0, SM0), hal::pio::Running>,
+        // SMI PIO TX FIFO
         smi_tx: hal::pio::Tx<(pac::PIO0, SM0)>,
+        // SMI PIO RX FIFO
         smi_rx: hal::pio::Rx<(pac::PIO0, SM0)>,
 
+        // A single Message struct that is constructed when a command is given
+        // TODO: Place in queue
         message: HostRequest<crate::protocol::Clean>,
 
         serial_buf: [u8; 64],
-
+        // String command that will be received over serial and must be matched
+        // Used for internal logic in USB_IRQ to count characters.
         counter: Counter,
     }
 
@@ -175,6 +188,9 @@ mod app {
 
         // Reset the counter
         let counter = Counter::new();
+        // let mut command = str::from_utf8(&[0]).unwrap();
+        let mut command = "hello";
+        
 
         let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
@@ -234,7 +250,7 @@ mod app {
         sm.set_pindirs([(1, PinDir::Output)]);
         let smi_master = sm.start();
 
-        let serial_buf = [0_u8; 64];
+        let mut serial_buf = [0_u8; 64];
                
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
@@ -253,6 +269,8 @@ mod app {
                 message: spi_message,
 
                 serial_buf,
+
+                //command,
 
                 counter,
             },
@@ -304,38 +322,40 @@ mod app {
                         }
                         // TODO Add OK(_count) response
                         Ok(_count) => {
-                            // let index = counter_a.get() as usize;
-                            match_usb_serial_buf(&buf, serial_a, 63);
-                            /* 
                             let index = counter_a.get() as usize;
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
-                                b'\n' => { match_usb_serial_buf(&serial_buf, serial_a, index); 
-                                // Reset the buffer
-                                for i in 0..serial_buf.len() {
-                                    serial_buf[i] = 0;
-                                }
-                                counter_a.reset();
-                            }
-                            _ => { 
-                                let next_index = serial_buf.iter().position(|&x| x == 0);
-                                match next_index {
-                                    Some(next_index) => { serial_buf[next_index] = buf[0]; 
-                                    counter_a.increment();
+                                b'\r' => { 
+                                    // let command = str::from_utf8(serial_buf).unwrap();
+                                    // write_serial(serial_a, command, false);
+                                    
+                                    match_usb_serial_buf(serial_buf, serial_a, index); 
+                                    // Reset the buffer
+                                   // print_menu(serial_a);
+                                    // Reset serial buffer
+                                    for elem in serial_buf.iter_mut() {
+                                        *elem = 0;
                                     }
-                                    // Edge case where buffer may be full of characters. This should not ever happen
-                                    None => {
-                                        for i in 0..serial_buf.len() {
-                                            serial_buf[i] = 0;
+                                    counter_a.reset(); 
+                                }
+
+                                _ => {
+                                    let first_zero = serial_buf.iter().position(|&x| x == 0);
+                                    match(first_zero) {
+                                        Some(Index) => { serial_buf[Index] = buf[0]; }
+                                        
+                                        _ => { 
+                                            for elem in serial_buf.iter_mut() {
+                                                *elem = 0;
+                                            }
                                         }
-                                        counter_a.reset();
-                                    } */
-                            
-                                
+                                    }
+
+                                    let command = str::from_utf8(&mut buf[0..1]).unwrap();
+                                    write_serial(serial_a, command, false);
+                                }
                             }
-                 
-                        }
-                    } 
+                    } } }
                 } 
             )
         }

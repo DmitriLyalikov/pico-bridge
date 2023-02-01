@@ -4,6 +4,8 @@ use usb_device::{class_prelude::*, prelude::*};
 // USB Communications Class Device support
 use usbd_serial::SerialPort;
 
+use core::str;
+
 pub struct Counter {
     counter: u32,
     enable: bool,
@@ -69,46 +71,42 @@ pub fn match_usb_serial_buf(
     serial: &mut SerialPort<'static, hal::usb::UsbBus>,
     index: usize,
 ) {
-    let _buf_len = buf.len();
+    let buf =  str::from_utf8(buf).unwrap();
+    write_serial(serial, "\n\r", false);
+    //write_serial(serial, buf, false);
+    if slice_contains(buf, "smi") {
+        write_serial(serial, "success\n\r", false);
+    }
 
-    match buf[0] {
+    if slice_contains(buf, "menu") {
+        // write_serial(serial, "success\n\r", false);
+        print_menu(serial);
+    }
+    /*  
+    match buf {
         // Print Menu
+        "M" | "m" => { write_serial(serial, "success\n\r", false);}
         
-        b'M' | b'm' => {
+        "SMI" | "smi" => {
 
-            write_serial(serial, "M - Print Menu\n\r", false);
+            write_serial(serial, "success\n\r", false);
             print_menu(serial);
         } 
          
         // 0 - Reset counter
-        b'0' => {
-        write_serial(serial, "M - Print Menu\n\r", false);
+        "help" => {
+        write_serial(serial, buf, false);
             //counter.reset();
         }
-        // 1 - Increment counter
-        b'1' => {
-            write_serial(serial, "1 - Increment counter\n\r", false);
-            // counter.increment();
-        }
-        // 2 - Start continues counter
-        b'2' => {
-            write_serial(serial, "2 - Start continues counter\n\r", false);
-            // counter.enable(true);
-        }
-        // 3 - Stop continues counter
-        b'3' => {
-            write_serial(serial, "3 - Stop continues counter\n\r", false);
-            // counter.enable(false);
-        } 
         _ => {
             write_serial(
                 serial,
-                unsafe { core::str::from_utf8_unchecked(buf) },
+                buf,
                 false,
             );
             write_serial(serial, "Invalid option!\n\r", false);
-        }
-    }
+        } 
+    } */
 }
 
 pub fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
@@ -128,5 +126,21 @@ Enter option: ";
 
     write_serial(serial, menu_str, true);
 }
+
+pub fn slice_contains(haystack: &str, needle: &str) -> bool {
+    if haystack.len() < needle.len() {
+        return false;
+    }
+
+    for i in 0..=(haystack.len() - needle.len()) {
+        if &haystack[i..(i + needle.len())] == needle {
+            return true;
+        }
+    }
+
+    false
+}
+
+
 
 
