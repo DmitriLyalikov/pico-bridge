@@ -53,7 +53,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
-    use crate::protocol::HostRequest;
+    use crate::protocol::{Host::HostRequest, Slave::SlaveResponse};
     use core::str;
 
 
@@ -290,10 +290,10 @@ mod app {
         let operation = ((rx[0] >> 2) & 0b111) as u8;
         // 2-Bit Payload will be last two bits of packet 1
         let proc_id = ((rx[0] & 0b11)) as u8;
-
+        /* 
         message.set_proc_id(proc_id);
         message.set_interface(interface);
-        message.set_operation(operation);
+        message.set_operation(operation); */
         
         
         

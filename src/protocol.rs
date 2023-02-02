@@ -1,12 +1,23 @@
 // Check if this must implement send and sync
     use core::{marker::PhantomData};
     use core::{mem, slice};
+
+    use self::Slave::{SlaveResponse, NotReady};
+
+    pub trait Send{
+        fn send_out(&self) -> Option<SlaveResponse<NotReady>> {}
+    }
+
+pub mod Host {
+    use core::{marker::PhantomData};
+
     // State of the request
     pub trait State {}
     // request has not been validated
     pub struct Unclean {
         __private: (),
     }
+
     // The request has been validated
     pub struct Clean {
         __private: (),
@@ -104,8 +115,38 @@
             self.transition(Clean {__private: () })
         } 
     }
+}
 
-mod SlaveResponse {
+pub mod Slave {
+    use core::{marker::PhantomData};
+
+        // State of the request
+    pub trait State {}
+    // The response is ready to go back to the host
+    pub struct Ready {
+        __private: (),
+    }
+    // The response is not ready to send back to host
+    pub struct NotReady {
+        __private: (),
+    }
+
+    impl State for NotReady {}
+    impl State for Ready {}
+
+    pub enum ValidHostInterfaces {
+        Serial = 0b00,
+        UART = 0b01,
+        SPI = 0b10,
+    }
+    pub struct SlaveResponse<S: State> {
+        state: PhantomData<S>,
+        proc_id: u8,
+        host_config: ValidHostInterfaces,
+        size: u8,             // A value between 0 and 4
+        payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
+
+    }
     pub enum SlaveCode {
         NotReady,
         Ready,
