@@ -1,11 +1,14 @@
 // Check if this must implement send and sync
     use core::{marker::PhantomData};
+    use core::result::Result;
     use core::{mem, slice};
 
-    use self::Slave::{SlaveResponse, NotReady};
+    use self::Slave::{SlaveResponse, NotReady, SlaveErr};
 
     pub trait Send{
-        fn send_out(&self) -> Option<SlaveResponse<NotReady>> {}
+        fn send_out(&self) -> Result<SlaveResponse<NotReady>, SlaveErr> {
+            Err(SlaveErr::Timeout)
+        }
     }
 
 pub mod Host {
@@ -146,6 +149,11 @@ pub mod Slave {
         size: u8,             // A value between 0 and 4
         payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
 
+    }
+
+    pub enum SlaveErr {
+        Timeout,
+        None,
     }
     pub enum SlaveCode {
         NotReady,

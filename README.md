@@ -4,8 +4,8 @@
   <h1 align="center">pico-bridge</h1>
 </p>
 
-The **pico-bridge** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. firmware for the rp2040 based on the RTIC (Real Time Interrupt Driven Concurrency) embedded framework for Rust.
-firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driven Concurrency environment for [Rust][3].
+The **pico-bridge** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. 
+The application for the [`rp2040`][1] is based on the [`RTIC`][2] Real Time Interrupt-Driven Concurrency environment for [Rust][3].
 
 
 ### What is Interface Bridging?
