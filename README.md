@@ -251,11 +251,11 @@ Maximum Latency
 Minimum Latency
 Power consumption
 
-* Transaction Latency Test Architecture
+* **Transaction Latency Test Architecture**
 <img width="707" alt="image" src="https://user-images.githubusercontent.com/68623356/216362037-a6015805-e16b-463c-aaf2-1500c493aa4e.png">
   
-* Signal Integrity
-Capture Interface Signal Integrity across different frequencies, wire lengths
+* **Signal Integrity**
+Capture Signal Integrity characteristics across different frequencies, all DUT facing interfaces
     * Setup Time minimum (tSU)
     * Hold Time minimum (tH)
     * Jitter 
@@ -263,14 +263,18 @@ Capture Interface Signal Integrity across different frequencies, wire lengths
     * Fall Time (ns)
     * Amplitude 
     * Signal Distortion %
-  
-  
-
-
-
-
-
-
+    
+* **Protocol Tests**
+Test across all host-facing interfaces
+    * Invalid Interface
+    * Invalid Size
+    * Buffer Overflow
+    * Invalid Checksum
+    * Missing Payload
+   
+    * Force PIO Timeout
+    * PIO TX FIFO Full
+   
 
 ## Appendix
 #### Documentation
