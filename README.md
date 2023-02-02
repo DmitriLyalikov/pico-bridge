@@ -12,6 +12,8 @@ firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driv
 Interface bridging in this context is abstracting away the use of each DUT (Device) interface or protocol into the interaction between commands/data and TX/RX FIFOs. The enabling technology for the RP2040 to perform this service are the Programmable I/O State machines that allow high speed, extensible, and customizable "interfaces" to be interacted with as if they were simply hardware drivers. For example, an SMI (Serial Management Interface) state machine has been provided that by writing the Phy Address and Register Address + (data) to its TX FIFO, the system can write and read to the register space of an Ethernet Phy with precise timing. This state machine clocks out an MDC pin as well as reading and writing to the MDIO in the format of the [SMI Clause-22 Specification][29]. 
 
 ### Programmable I/O Architecture
+There are 2 identical PIO blocks in RP2040. Each PIO block has dedicated connections to the bus fabric, GPIO and
+interrupt controller. Each PIO block contains 4 independent state machines that can all be running simultaneously with different programs loaded. A total of 8 state machines can be running at any given time on the RP2040 MCU.
 
 <img width="459" alt="image" src="https://user-images.githubusercontent.com/68623356/216333483-515f476e-c5cc-4484-92e4-1c4c3eac3a3b.png">
 
