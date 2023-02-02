@@ -147,7 +147,7 @@ new_message.init_clean(); // HostRequest<Clean>
 A host driver that constructs the SPI message to be sent can look like: 
 ```
 header = ValidInterface::SMI >> 3 | ValidOp::Read >> 5 | Proc_id # Enumerated values
-data_tag = size | calculate_checksum(payload) # Size is 0x2 bytes
+data_tag = size | calculate_checksum(payload) >> 2 # Size is 0x2 bytes
 request = [header, data_tag, 0x9, 0x1]
 
 spi.transfer(request)
@@ -163,9 +163,39 @@ impl Send for HostRequest<Clean> {
     }
 }
 ```
+The send_out() function will match on the interface specified and push the payload to the TX FIFO of that interface. If it is a Config command, the handler task that built the message will spawn the config function associated and pass the parameters specified. 
 
+At this point, keep in mind it has already been validated that the fields are valid because it has been checked before transitioning. 
 
+The return type of the send_out() function is an Option<> which can be unpacked as either a valid SlaveResponse data structure or an enumeration of a Slave Error that occured when performing the command. 
 
+the SlaveResponse data structure is similar in functionality to the HostRequest we saw earlier:
+```
+    pub struct SlaveResponse<S: State> {
+        state: PhantomData<S>,
+        proc_id: u8,
+        checksum: u8,         // Wrapping checksum
+        response: [u8; 4],     // Max response size
+    }
+```
+Like before, when first initialized, it will be of the type: 
+```
+SlaveResponse<NotReady>
+```
+Initialized with the same proc_id as the preceding HostRequest.
+Upon the event of the response data being ready whether from Config function succeeding or the PIO IRQ asserting a read on the RX FIFO,
+the response field will be filled, allowing the type to transition to:
+```
+SlaveResponse<Ready>
+```
+Which implements the Respond Trait:
+```
+impl Respond for SlaveResponse<Ready> {
+    pub fn respond_to_host(&self) -> Option<(), app::Error> {
+        ...
+    }
+}
+```
 
 
 
