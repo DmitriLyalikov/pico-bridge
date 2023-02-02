@@ -264,7 +264,8 @@ Capture Signal Integrity characteristics across different frequencies, all DUT f
     * Amplitude 
     * Signal Distortion %
     
-* **Protocol Tests**
+* **Protocol Tests**   
+
 Test across all host-facing interfaces
     * Invalid Interface
     * Invalid Size
