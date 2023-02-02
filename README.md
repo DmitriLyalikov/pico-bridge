@@ -256,7 +256,14 @@ Power consumption
   
 * Signal Integrity
 Capture Interface Signal Integrity across different frequencies, wire lengths
-    * Setup Time (tSU)
+    * Setup Time minimum (tSU)
+    * Hold Time minimum (tH)
+    * Jitter 
+    * Rise Time (ns)
+    * Fall Time (ns)
+    * Amplitude 
+    * Signal Distortion %
+  
   
 
 
