@@ -15,16 +15,32 @@ Interface bridging in this context is abstracting away the use of each DUT (Devi
 
 <img width="459" alt="image" src="https://user-images.githubusercontent.com/68623356/216333483-515f476e-c5cc-4484-92e4-1c4c3eac3a3b.png">
 
-#### Configurable
+#### **Benefits**
+When we want to send data to a pin via a state machine, we first push the data to the FIFO input. When the state machine is ready to process the data, it will pull it from the queue and perform the instruction.
+
+The key benefit here is that we can decouple the need for the central CPU from the execution of the instruction, since it has been “delegated” to the PIO’s state machine.
+
+Although each FIFO can only hold up to four words of data (each of 32 bits), we can link them with direct memory access (DMA) to transmit larger amounts. This way, we can once again free up the CPU from having to “babysit” the process.
+
+#### **Instruction Set**
+* **JMP**: This ‘jump’ instruction can be a conditional or a non-conditional statement. In this, it transfers the flow of execution by changing the instruction pointer register. In simple words, with ‘jmp’ statement the flow of execution goes to another part of the code.
+* **WAIT**: This instruction stalls the execution of the code. Each instruction takes one cycle unless it is stalled (using the WAIT instructions).
+* **OUT**: This instruction shifts data from the output shift register to other destinations, 1…32 bits at a time.
+* **PULL**: This instruction pops 32-bit words from TX 
+ FIFO into the output shift register.
+* **IN**: This instruction shift 1…32 bits at a time into the register.
+* **PUSH**: This instruction to write the ISR content to the RX FIFO.
+
+### Configurable
 * Over the same transport layer between the host and Pico, commands can dynamically set, and read the State Machine configurations such as Clock Rate, Pin Assignments, and disable/enable
 
-#### Extensible
+### Extensible
 * Interface State Machines can be dynamically loaded and unloaded, depending on the application requirements. 
 * Users can implement additional interfaces as needed, ie: [An awesome RMII PIO implementation][26].
 * Multiple transport layers are all supported depending on host, (USB Serial, UART/SPI, Standalone SPI)
 * Greatly simplifies device peripheral designs, as all interfaces can be managed through a single port. Removes the need for separate board headers for each interface. 
 
-#### Robust, Performant, and Low-Power
+### Robust, Performant, and Low-Power
 * A purely Rust application, static analysis at compile time guarantees memory safety and thread safe code.
 * Built on the RTIC (Real Time Interrupt Driven Concurrency) Framework, tasks are bound to hardware interrupts managed by the ARM Cortex NVIC, with no RTOS kernel overhead. This makes the already rapid Rust application deterministic and linear in its transaction turnaround. See: [`Benchmarks and Profiling`][23]
 * This interrupt-driven application enters a low power sleep state when idle. 
@@ -209,7 +225,7 @@ For example, with USB Serial and UART, the respond_to_host function can simply w
 
 ### **Optimizations**
 One assumption that can be integrated into this design is that a host or application will typically make the same host commands repeatedly. For example, a Device may be being configured with a JTAG interface, so repeated writes and reads to the same interface will be done.
- 
+
 ****Another design decision is to include a static state that stores the most recent interface used as the default interface in a LIFO fashion to remove the need to always specify the interface in every transaction. This may cause issues with creating more states, and it is only removing 3 bits.****
 
 
