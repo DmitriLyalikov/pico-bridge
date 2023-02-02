@@ -284,10 +284,17 @@ mod app {
         let rx = cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
         // Received bytes, Now build our HostRequest
         let mut message = HostRequest::new();
-        message.set_proc_id(rx[0]);
-        message.set_interface(rx[1]);
-        message.set_operation(ValidOps::);
-        message.set_payload()
+        // Interface first 3 bits of Packet 1
+        let interface = ((rx[0] >> 5) & 0b111) as u8;
+        // Operation next 3 bits of Packet 1
+        let operation = ((rx[0] >> 2) & 0b111) as u8;
+        // 2-Bit Payload will be last two bits of packet 1
+        let proc_id = ((rx[0] & 0b11)) as u8;
+
+        message.set_proc_id(proc_id);
+        message.set_interface(interface);
+        message.set_operation(operation);
+        
         
         
     }

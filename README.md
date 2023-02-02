@@ -1,10 +1,10 @@
 <!-- Title -->
 <p align="center">
   <img width=15% src="https://www.svgrepo.com/show/68860/microchip.svg">
-  <h1 align="center">pico-rpc-rtic</h1>
+  <h1 align="center">pico-bridge</h1>
 </p>
 
-The **pico-rtic-rpc** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. firmware for the rp2040 based on the RTIC (Real Time Interrupt Driven Concurrency) embedded framework for Rust.
+The **pico-bridge** is a project that implements an embedded RPC for interface bridging utilizing the programmable I/O peripherals on the RP2040. firmware for the rp2040 based on the RTIC (Real Time Interrupt Driven Concurrency) embedded framework for Rust.
 firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driven Concurrency environment for [Rust][3].
 
 
@@ -100,9 +100,26 @@ as UART and SPI
 ## RPC Requests
 TODO add the menu and possible commands that can be called and how to use them across each host transport
 ## Host Configurations
-### Standalone SPI
 
-src/protocol.rs: 
+A host in this architecture can be anything that is capable of making requests to and receiving from the pico-bridge with one or more of the supported host-facing interfaces (Serial, UART, or SPI).
+
+In order to successfully call the functions the pico-bridge supports, it is necessary for the host to understand the protocol that is implemented. This host/pico-bridge agreed protocol is the architectural key that can successfully abstract an interface and platform agnostic way to interact with device side hardware. 
+
+To implement this, a Request/Receive message protocol is created which specifies the required and optional fields a request and response must have to ensure data integrity, correctness, and consistency.
+
+### ****Request/Receive Protocol****
+
+To begin a request, the host-side driver or user will construct a HostRequest message that will be packaged with all the necessary fields for the given RPC command. These required fields may be different for various RPC commands, and the way they are transmitted can be different across the host facing interfaces. 
+
+For example, using the serial interface of the pico-bridge,
+The entry below will suffice for the rpc-bridge to understand that this is a SMI interface request with a read operation on the Phy Address 9 to Register 1 of the general SMI register bank:
+```
+smi r 0x9 0x1 
+```
+
+If using the standalone SPI host facing interface, a data structure must be created with extra fields. This data structure is then broken into bytes and pushed onto the SPI bus where the pico-bridge will read in its contents and construct a HostRequest message as seen below: 
+
+ [src/protocol.rs]
 ```
     pub struct HostRequest<S: State> {
         state: PhantomData<S>,
@@ -111,32 +128,59 @@ src/protocol.rs:
         operation: ValidOps,
         checksum: u8,         // Wrapping checksum
         size: u8,             // A value between 0 and 4
-        payload: [u8; 4],     // Max payload size over SPI is 4 bytes 
+        payload: [u8; 4],     // Max payload size over SPI 
     }
 ```
+pico-bridge will instantiate this data structure with the type:
+```
+let mut new_message: HostRequest<Unclean> = HostRequest::new();
+```
+This has an associated type of 'Unclean' which implies that it is not yet ready to be sent to its destination. Before sending, this type enforces at compile time that the application must initialize all fields of the message before being cleaned. 
+It will perform validation of the parameters and verify the checksum by using the trait function: 'init_clean()' which returns a new HostRequest with an associated type <Clean>. 
 
-The transport layer used between Host application and RP2040 is an enhanced protocol-based-SPI, where the host acts as a 
-Master initiating a transaction and the RP2040 is a slave. A valid transaction between the Master and Slave in this 
-protocol specifies the PIO interface to be used, and a payload of data to send to that interface, and a return message 
-with the response of the DUT and a status code indicating no faults within the slave process. 
-There is an inherent latency between the receiving of this message and the forwarding to the interface, DUT
-response, and sending this response back the host. To account for this async transaction, 
-the SPI slave puts the master into a polling mode by returning a slave_busy code until a DUT response is ready. The 
-Master will clock in the slave_busy code until a response is ready, this is non-blocking, as the master does not need to assert CS. 
-When in a ready state, the slave will shift out a ready_code to acknowledge with the master that it has a response ready. The master will then 
-by synchronized with the response packet and allow for the proper slave transmission.
+This is an example of a zero cost abstraction where using Rust's rich type system can create effective compile time checks that behavior is followed correctly. These associated types have zero size, and are essentially enforcing labels.
+```
+new_message.init_clean(); // HostRequest<Clean>
+```
+***It is still a design question what to do with a message that fails to transition to the Clean type, for whatever reason. Some potential options are to simply drop the message or, and whether or not to notify the host.***
 
-This process also guarantees that queued transactions are processed in the order they are received from the host. 
-To differentiate transactions from each other, each transaction is given a unique process_id that is passed across 
-each process and returned to the host. It is also given an 8-Bit CRC for primitive error checking on the slave side. If 
-a CRC fail is computed incorrectly, the slave will return an rx_invalid code to the master, and the transaction will be 
-terminated before reaching the DUT. To minimize processing latency within tight timing requirements, these are 
-the few mechanisms to ensure correctness. The complete packet typedefs can be seen in mod transaction in lib.rs.
+A host driver that constructs the SPI message to be sent can look like: 
+```
+header = ValidInterface::SMI >> 3 | ValidOp::Read >> 5 | Proc_id # Enumerated values
+data_tag = size | calculate_checksum(payload) # Size is 0x2 bytes
+request = [header, data_tag, 0x9, 0x1]
+
+spi.transfer(request)
+```
+
+In end functionality, both the SPI and Serial messages will invoke the same functions on the pico-bridge. They will be constructed the same way when received. The type HostRequest<Clean> will implement the trait 'Send' which will define the generic behavior of interacting with the TX FIFOS or performing the RPC command:
+
+```
+impl Send for HostRequest<Clean> {
+    pub fn send_out(&self) -> Option<SlaveResponse, SlaveErr>
+    {
+        ...
+    }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
 ### UART/SPI
 How to setup communication between the Pico and Host for each interface
 ## Interface Defaults
 Clock rates, pin assignments, etc...
 ## Testing
+
+
 Test timing and latency over 1000 transactions with each interface. 
 Total Average Latency 
 Maximum Latency
