@@ -45,7 +45,7 @@ Although each FIFO can only hold up to four words of data (each of 32 bits), we 
 ### Robust, Performant, and Low-Power
 * A purely Rust application, static analysis at compile time guarantees memory safety and thread safe code.
 * Built on the RTIC (Real Time Interrupt Driven Concurrency) Framework, tasks are bound to hardware interrupts managed by the ARM Cortex NVIC, with no RTOS kernel overhead. This makes the already rapid Rust application deterministic and linear in its transaction turnaround. See: [`Benchmarks and Profiling`][23]
-* This interrupt-driven application enters a low power sleep state when idle. 
+* This interrupt-driven application enters a low power sleep state when idle. Will reach 6 mW when in its sleep mode.
 
 ### Remote Procedure Call
 * RPC System Architecture
