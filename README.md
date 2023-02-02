@@ -179,7 +179,7 @@ In end functionality, both the SPI and Serial messages will invoke the same func
 
 ```
 impl Send for HostRequest<Clean> {
-    pub fn send_out(&self) -> Option<SlaveResponse, SlaveErr>
+    pub fn send_out(&self) -> Result<SlaveResponse<NotReady>, SlaveErr>
     {
         ...
     }
