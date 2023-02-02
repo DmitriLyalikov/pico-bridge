@@ -9,7 +9,11 @@ firmware for the [`rp2040`][1] based on the [`RTIC`][2] Real Time Interrupt-Driv
 
 
 ### What is Interface Bridging?
-Interface bridging in this context is abstracting away the use of each interface or protocol into the interaction between data and TX/RX FIFOs. The enabling technology for the RP2040 to perform this service are the Programmable I/O State machines that allow high speed, extensible, and customizable "interfaces" to be interacted with as if they were simply hardware drivers. For example, an SMI (Serial Management Interface) state machine has been provided that by writing the Phy Address and Register Address + (data) to its TX FIFO, the system can write and read to the register space of an Ethernet Phy with precise timing. 
+Interface bridging in this context is abstracting away the use of each DUT (Device) interface or protocol into the interaction between commands/data and TX/RX FIFOs. The enabling technology for the RP2040 to perform this service are the Programmable I/O State machines that allow high speed, extensible, and customizable "interfaces" to be interacted with as if they were simply hardware drivers. For example, an SMI (Serial Management Interface) state machine has been provided that by writing the Phy Address and Register Address + (data) to its TX FIFO, the system can write and read to the register space of an Ethernet Phy with precise timing. This state machine clocks out an MDC pin as well as reading and writing to the MDIO in the format of the [SMI Clause-22 Specification][29]. 
+
+### Programmable I/O Architecture
+
+<img width="459" alt="image" src="https://user-images.githubusercontent.com/68623356/216333483-515f476e-c5cc-4484-92e4-1c4c3eac3a3b.png">
 
 #### Configurable
 * Over the same transport layer between the host and Pico, commands can dynamically set, and read the State Machine configurations such as Clock Rate, Pin Assignments, and disable/enable
@@ -203,6 +207,11 @@ For example, with USB Serial and UART, the respond_to_host function can simply w
 
 ****Another Design decision is whether or not to continuously advertise slave status codes. If the Host tries to clock in a response too early, the slave can simply shift out a SLAVE_BUSY code until SlaveResponse is ready. If not, the Response is written on the next transfer, but the host will not know exactly when that Response will come. Also it should not be necessary to create a new message simply to read the response, so maybe the host should send a ReadREQ code that states it is not a message but a transfer to read from MISO the Response.****
 
+### **Optimizations**
+One assumption that can be integrated into this design is that a host or application will typically make the same host commands repeatedly. For example, a Device may be being configured with a JTAG interface, so repeated writes and reads to the same interface will be done.
+ 
+****Another design decision is to include a static state that stores the most recent interface used as the default interface in a LIFO fashion to remove the need to always specify the interface in every transaction. This may cause issues with creating more states, and it is only removing 3 bits.****
+
 
 
 
@@ -224,7 +233,6 @@ Maximum Latency
 Minimum Latency
 Power consumption
 
-<img width="459" alt="image" src="https://user-images.githubusercontent.com/68623356/216333483-515f476e-c5cc-4484-92e4-1c4c3eac3a3b.png">
 
 
 
@@ -247,6 +255,7 @@ Power consumption
 * [CMSIS-DAP Firmware `DapperMime`][16]
 
 #### Resources
+* [SMI Protocol Specification][29]
 * [Rust Embedded Book][20]
 * [Awesome Embedded Rust][21]
 * [Getting Started with Raspberry Pi Pico][22]
@@ -287,3 +296,4 @@ Power consumption
 [24]: https://github.com/ferrous-systems/teaching-material
 [25]: https://github.com/rp-rs/rp2040-project-template
 [26]: https://github.com/sandeepmistry/pico-rmii-ethernet
+[29]: https://prodigytechno.com/mdio-management-data-input-output/
