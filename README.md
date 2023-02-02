@@ -224,6 +224,9 @@ Maximum Latency
 Minimum Latency
 Power consumption
 
+<img width="459" alt="image" src="https://user-images.githubusercontent.com/68623356/216333483-515f476e-c5cc-4484-92e4-1c4c3eac3a3b.png">
+
+
 
 
 
