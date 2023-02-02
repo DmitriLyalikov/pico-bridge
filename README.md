@@ -174,7 +174,8 @@ the SlaveResponse data structure is similar in functionality to the HostRequest 
     pub struct SlaveResponse<S: State> {
         state: PhantomData<S>,
         proc_id: u8,
-        checksum: u8,         // Wrapping checksum
+        host_config: ValidHostInterface,
+        checksum: u8,          // Wrapping checksum
         response: [u8; 4],     // Max response size
     }
 ```
@@ -196,6 +197,11 @@ impl Respond for SlaveResponse<Ready> {
     }
 }
 ```
+It is noted that the SlaveResponse data structure includes a field called host_config. This is an enumerated type of ValidHostInterfaces. This is important because the SlaveResponse also looks different when sending back to the host.
+
+For example, with USB Serial and UART, the respond_to_host function can simply write to the respective buffer and that is a completed transaction. In Standalone SPI however, the pico-bridge is configured as a slave, and can not initiate communication with the Host (SPI Master). It is the function of the Host to re-request the SlaveResponse, which will be clocked out on the MISO line of the SPI bus over the next transactions. 
+
+****Another Design decision is whether or not to continuously advertise slave status codes. If the Host tries to clock in a response too early, the slave can simply shift out a SLAVE_BUSY code until SlaveResponse is ready. If not, the Response is written on the next transfer, but the host will not know exactly when that Response will come. Also it should not be necessary to create a new message simply to read the response, so maybe the host should send a ReadREQ code that states it is not a message but a transfer to read from MISO the Response.****
 
 
 
