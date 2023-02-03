@@ -249,7 +249,7 @@ One assumption that can be integrated into this design is that a host or applica
 ****Another design decision is to include a static state that stores the most recent interface used as the default interface in a LIFO fashion to remove the need to always specify the interface in every transaction. This may cause issues with creating more states, and it is only removing 3 bits.****
 
 It may be a speedup to assign the SlaveResponse tasks to the second core of the RP2040. This way functionality can be split up and HostRequests can be received 
-at the same time as SlaveResponses are processed. 
+at the same time as SlaveResponses are processed. This may involve excessive message passing between cores, so it may be negligible. 
 
 Another speedup can configure the DMA to automatically read the PIO RX FIFO contents into a buffer when the IRQ is asserted. This could be negligible.
 

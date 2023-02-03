@@ -119,5 +119,20 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 }
 
 
+// Helper function to take list of bytes in decimal form
+// and return u32.
+// ie: bytes = [b'3', b'5', b'1'] will return decimal value 351
+// TODO include hex 
+pub fn bytes_to_number(bytes: &[u8]) -> i32 {
+    let mut number = 0;
+
+    for (i, &byte) in bytes.iter().enumerate().rev() {
+        number += (byte - b'0') as i32 * 10_i32.pow(i as u32);
+    }
+
+    number
+}
+
+
 
 
