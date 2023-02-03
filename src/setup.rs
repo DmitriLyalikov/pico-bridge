@@ -4,7 +4,7 @@ use usb_device::{class_prelude::*, prelude::*};
 // USB Communications Class Device support
 use usbd_serial::SerialPort;
 
-use core::str;
+use core::str::{SplitWhitespace};
 
 pub struct Counter {
     counter: u32,
@@ -152,10 +152,13 @@ fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
 // into HostRequest fields. 
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
 // if fields are missing or invalid
-pub fn message_parse() {
+pub fn message_parse<'input>() {
+        let input = "smi 0x1";
+        let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
+        for word in words(input) {
 
-}
-
+        }
+    }
 
 
 
