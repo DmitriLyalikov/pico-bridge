@@ -114,7 +114,6 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
             return true;
         }
     }
-
     false
 }
 
@@ -125,7 +124,7 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 pub fn bytes_to_number(bytes: &[u8]) -> i32 {
     let mut number = 0;
 
-    for (i, &byte) in bytes.iter().enumerate().rev() {
+    for (i, &byte) in bytes.iter().rev().enumerate() {
         number += (byte - b'0') as i32 * 10_i32.pow(i as u32);
     }
     number
@@ -135,10 +134,10 @@ pub fn bytes_to_number(bytes: &[u8]) -> i32 {
 // Helper function to take list of bytes in hex form
 // and return u32.
 // ie: bytes = [b'0', b'x', b'F'] will return value 15
-pub fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
+fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
     let mut number = 0;
 
-    for (i, &byte) in bytes.iter().skip(2).enumerate().rev() {
+    for (i, &byte) in bytes.iter().skip(2).rev().enumerate() {
         number += match byte {
             b'0'..=b'9' => (byte - b'0') as i32 * 16_i32.pow(i as u32),
             b'A'..=b'F' => (byte - b'A' + 10) as i32 * 16_i32.pow(i as u32),
@@ -153,7 +152,9 @@ pub fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
 // into HostRequest fields. 
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
 // if fields are missing or invalid
-pub fn message_parse() {}
+pub fn message_parse() {
+
+}
 
 
 
