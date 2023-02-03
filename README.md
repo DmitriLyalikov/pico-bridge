@@ -33,6 +33,19 @@ Although each FIFO can only hold up to four words of data (each of 32 bits), we 
 * **IN**: This instruction shift 1…32 bits at a time into the register.
 * **PUSH**: This instruction to write the ISR content to the RX FIFO.
 
+#### **Interaction**
+Each state machine driver will be designed to block until a word of data has been written to its TX FIFO.
+```
+.wrap_target
+pull block
+.wrap
+```
+The above program will sit in a loop and wait until a word is ready, and then pull it onto the OSR (Output Shift Register). 
+
+A driver will generally take this data that is expected to be in a certain format and clock it out to meet the specification of its interface. For example, the SMI_Master driver provided expects the first two bits in the word provided to be the Op-Code and the next 16 to include both the PHY Address and Register Address. 
+
+When the driver is finished with its transaction, it will set an IRQ flag to indicate a word has been pushed to its respective RX FIFO. On an operation like a read, this could be the register contents, or for a write it could be simply a status bit that indicates the write successfully completed.
+
 ### Configurable
 * Over the same transport layer between the host and Pico, commands can dynamically set, and read the State Machine configurations such as Clock Rate, Pin Assignments, and disable/enable
 
