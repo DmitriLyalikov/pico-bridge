@@ -44,8 +44,13 @@ The above program will sit in a loop and wait until a word is ready, and then pu
 
 A driver will generally take this data that is expected to be in a certain format and clock it out to meet the specification of its interface. For example, the SMI_Master driver provided expects the first two bits in the word provided to be the Op-Code and the next 16 to include both the PHY Address and Register Address. 
 
+***It is the responsibility of the pico-bridge to ensure data going to each state machine is of the correct form***
+
 When the driver is finished with its transaction, it will set an IRQ flag to indicate a word has been pushed to its respective RX FIFO. On an operation like a read, this could be the register contents, or for a write it could be simply a status bit that indicates the write successfully completed.
 
+Because each PIO block has 4 state machines, the IRQ operation will set a single bit that corresponds to its index. The first bits (0..3) each will map to index (0..3) of each state machine.
+
+When fired, the PIO_IRQx handler will check which state machine is ready by reading that bit field. It can then read the correct contents and validate them correctly. The IRQ handler must clear that IRQ flag before completing. 
 ### Configurable
 * Over the same transport layer between the host and Pico, commands can dynamically set, and read the State Machine configurations such as Clock Rate, Pin Assignments, and disable/enable
 
