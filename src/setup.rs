@@ -128,7 +128,6 @@ pub fn bytes_to_number(bytes: &[u8]) -> i32 {
     for (i, &byte) in bytes.iter().enumerate().rev() {
         number += (byte - b'0') as i32 * 10_i32.pow(i as u32);
     }
-
     number
 }
 
@@ -146,10 +145,15 @@ pub fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
             b'a'..=b'f' => (byte - b'a' + 10) as i32 * 16_i32.pow(i as u32),
             _ => return -1,
         };
-
     }
     number
 }
+
+// Helper function that takes list of bytes and deconstructs
+// into HostRequest fields. 
+// NOTE: Preliminary behavior is to drop message and log to serial an invalid message
+// if fields are missing or invalid
+pub fn message_parse() {}
 
 
 
