@@ -1,9 +1,12 @@
+use crate::protocol::Host::{self, HostRequest, ValidInterfaces, ValidOps};
+
 use rp_pico::hal as hal;
 // USB Device support 
 use usb_device::{class_prelude::*, prelude::*};
 // USB Communications Class Device support
 use usbd_serial::SerialPort;
 
+use core::str;
 use core::str::{SplitWhitespace};
 
 pub struct Counter {
@@ -152,12 +155,30 @@ fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
 // into HostRequest fields. 
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
 // if fields are missing or invalid
-pub fn message_parse<'input>(input: &'input str) {
+pub fn message_parse_build<'input>(input: &'input str,
+    serial: &mut SerialPort<'static, hal::usb::UsbBus>) {
     // let input = "smi 0x1";
     // Split up the given string
+    let mut HR = HostRequest::new();
     let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
-    for word in words(input) {
-        // println!("{}", word);
+    let mut command = words(input);
+    // Match on the first word
+    match command.next().unwrap() {
+        "smi" | "SMI" => {
+            HR.set_interface(ValidInterfaces::SMI)
+        }
+        _ => {
+            write_serial(serial, "Invalid Interface", false);
+        }
+    }
+    // Match on the second word
+    match command.next().unwrap() {
+        "r" | "R" => {
+            HR.set_operation(ValidOps::Read);
+        }
+        _ => {
+            write_serial(serial, "Invalid Operation", false);
+        }
     }
 }
 
