@@ -119,8 +119,6 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
     false
 }
 
-
-
 // Helper function that takes list of bytes and deconstructs
 // into HostRequest fields. 
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
