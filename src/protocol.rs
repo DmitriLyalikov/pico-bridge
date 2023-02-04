@@ -187,7 +187,6 @@ pub mod Slave {
         host_config: ValidHostInterfaces,
         size: u8,             // A value between 0 and 4
         payload: [u32; 4],     // Max payload size over SPI is 4 bytes 
-
     }
 
     impl <S: State> SlaveResponse<S>{

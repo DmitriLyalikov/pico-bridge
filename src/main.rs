@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-
 //! Pico-Bridge Application for Hardware Interface Bridging
 //! Opens USB Device Serial Port, SPI slave, and Serial UART Host-to-Device transport layers to handle reqeusts 
 //! RTIC assigns hardware tasks for these peripheral interrupts in the RTIC domain to handle asynchronous host requests

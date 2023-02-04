@@ -6,7 +6,7 @@ use usb_device::{class_prelude::*, prelude::*};
 // USB Communications Class Device support
 use usbd_serial::SerialPort;
 
-use core::str;
+use core::{str, result};
 use core::str::{SplitWhitespace};
 
 pub struct Counter {
@@ -120,49 +120,43 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
     false
 }
 
-
-// Helper function to take list of bytes in decimal form
+// Helper function to take &str in decimal or hex form
 // and return u32.
-// ie: bytes = [b'3', b'5', b'1'] will return decimal value 351
-pub fn bytes_to_number(bytes: &[u8]) -> i32 {
-    let mut number = 0;
+// ie: s = "0xFF"  will return decimal value 255
+
+// TODO add case fix for when "" input returns 0. This should return ERR
+pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
+    let mut result: u32 = 0;
 
     // Check if the input is hex or decimal
-    if bytes.starts_with(b"0x") {
-        for (i, &byte) in bytes.iter().skip(2).rev().enumerate() {
-            number += match byte {
-                b'0'..=b'9' => (byte - b'0') as i32 * 16_i32.pow(i as u32),
-                b'A'..=b'F' => (byte - b'A' + 10) as i32 * 16_i32.pow(i as u32),
-                b'a'..=b'f' => (byte - b'a' + 10) as i32 * 16_i32.pow(i as u32),
-                _ => return -1,
-            };
+    let mut chars = s.chars();
+    if let Some(c) = chars.next() {
+        if c != '0' || chars.next() != Some('x') {
+            if '0' <= c && c <= '9' {
+                result += c as u32 - '0' as u32;
+                for c in chars {
+                    let digit= match c {
+                        '0'..='9' => c as u32 - '0' as u32,
+                        _ => return Err("Invalid decimal character"),
+                    };
+                    result = result * 10 + digit;
+                }
+                return Ok(result)
+            }
+            return Err("Not a hex or decimal string")
         }
     }
-    // It is decimal form
-    else {
-        for (i, &byte) in bytes.iter().rev().enumerate() {
-            number += (byte - b'0') as i32 * 10_i32.pow(i as u32);
-        }
-    }
-    number
-}
-
-
-// Helper function to take list of bytes in hex form
-// and return u32.
-// ie: bytes = [b'0', b'x', b'F'] will return value 15
-fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
-    let mut number = 0;
-
-    for (i, &byte) in bytes.iter().skip(2).rev().enumerate() {
-        number += match byte {
-            b'0'..=b'9' => (byte - b'0') as i32 * 16_i32.pow(i as u32),
-            b'A'..=b'F' => (byte - b'A' + 10) as i32 * 16_i32.pow(i as u32),
-            b'a'..=b'f' => (byte - b'a' + 10) as i32 * 16_i32.pow(i as u32),
-            _ => return -1,
+    for c in chars {
+        let digit =  match c {
+            '0'..='9' => c as u32 - '0' as u32,
+            'a'..='f' => c as u32 - 'a' as u32 + 10,
+            'A'..='F' => c as u32 - 'A' as u32 + 10,
+            _ => return Err("Invalid hex character"),
         };
+        result = result * 16 + digit;
     }
-    number
+    Ok(result)
+    // It is decimal form
 }
 
 // Helper function that takes list of bytes and deconstructs
@@ -172,6 +166,7 @@ fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
 pub fn message_parse_build<'input>(input: &'input str,
     serial: &mut SerialPort<'static, hal::usb::UsbBus>) {
     let mut payload = [0u32; 4];
+
     // Split up the given string
     let mut HR = HostRequest::new();
     let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
@@ -198,12 +193,10 @@ pub fn message_parse_build<'input>(input: &'input str,
     // Match on the third word
     let data = command.next().unwrap();
     // Check if hex 
-    if data.starts_with("0x"){
-        payload[0] = hex_bytes_to_number(data) as u32;
-    }
-    else {
-        payload[0] = bytes_to_number(data) as u32;
-    }
+ 
+    payload[0] = bytes_to_number(data).unwrap();
+    
+ 
 }
 
 
