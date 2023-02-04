@@ -127,8 +127,22 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 pub fn bytes_to_number(bytes: &[u8]) -> i32 {
     let mut number = 0;
 
-    for (i, &byte) in bytes.iter().rev().enumerate() {
-        number += (byte - b'0') as i32 * 10_i32.pow(i as u32);
+    // Check if the input is hex or decimal
+    if bytes.starts_with(b"0x") {
+        for (i, &byte) in bytes.iter().skip(2).rev().enumerate() {
+            number += match byte {
+                b'0'..=b'9' => (byte - b'0') as i32 * 16_i32.pow(i as u32),
+                b'A'..=b'F' => (byte - b'A' + 10) as i32 * 16_i32.pow(i as u32),
+                b'a'..=b'f' => (byte - b'a' + 10) as i32 * 16_i32.pow(i as u32),
+                _ => return -1,
+            };
+        }
+    }
+    // It is decimal form
+    else {
+        for (i, &byte) in bytes.iter().rev().enumerate() {
+            number += (byte - b'0') as i32 * 10_i32.pow(i as u32);
+        }
     }
     number
 }
@@ -157,7 +171,7 @@ fn hex_bytes_to_number(bytes: &[u8]) -> i32 {
 // if fields are missing or invalid
 pub fn message_parse_build<'input>(input: &'input str,
     serial: &mut SerialPort<'static, hal::usb::UsbBus>) {
-    // let input = "smi 0x1";
+    let mut payload = [0u32; 4];
     // Split up the given string
     let mut HR = HostRequest::new();
     let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
@@ -179,6 +193,16 @@ pub fn message_parse_build<'input>(input: &'input str,
         _ => {
             write_serial(serial, "Invalid Operation", false);
         }
+    }
+
+    // Match on the third word
+    let data = command.next().unwrap();
+    // Check if hex 
+    if data.starts_with("0x"){
+        payload[0] = hex_bytes_to_number(data) as u32;
+    }
+    else {
+        payload[0] = bytes_to_number(data) as u32;
     }
 }
 
