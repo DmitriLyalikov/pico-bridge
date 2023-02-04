@@ -124,7 +124,7 @@ pub mod Host {
                 operation: ValidOps::None,
                 checksum: 0_u8,
                 size: 0_u8,           
-                payload: [0_u8; 4],
+                payload: [0_u32; 4],
             }
         }
         pub fn set_proc_id(&mut self, proc_id: u8) {
@@ -143,7 +143,7 @@ pub mod Host {
             self.size = size
         }
 
-        pub fn set_payload(&mut self, payload: [u8; 4]) {
+        pub fn set_payload(&mut self, payload: [u32; 4]) {
             self.payload =  payload;
         }
 
@@ -231,7 +231,7 @@ pub mod Slave {
                 proc_id: 0_u8,
                 host_config: ValidHostInterfaces::None,
                 size: 0_u8,       
-                payload: [0_u8; 4],
+                payload: [0_u32; 4],
             }
         }
 
@@ -247,7 +247,7 @@ pub mod Slave {
             self.size = size;
         }
 
-        pub fn set_payload(&mut self, payload: [u8; 4]) {
+        pub fn set_payload(&mut self, payload: [u32; 4]) {
             self.payload = payload;
         }
 

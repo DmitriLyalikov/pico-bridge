@@ -325,6 +325,15 @@ mod app {
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
                                 b'\r' => { 
+                                    let first_zero = serial_buf.iter().position(|&x| x == 0);
+                                    match first_zero {
+                                        Some(Index) => { serial_buf[Index] = b' '; }
+                                        None => { // This means buffer is completely full (should not happen)
+                                            for elem in serial_buf.iter_mut() {
+                                                *elem = 0;
+                                            }
+                                        }
+                                    }
                                     match_usb_serial_buf(serial_buf, serial_a); 
                                     // Reset serial buffer
                                     for elem in serial_buf.iter_mut() {

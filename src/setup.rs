@@ -6,7 +6,7 @@ use usb_device::{class_prelude::*, prelude::*};
 // USB Communications Class Device support
 use usbd_serial::SerialPort;
 
-use core::{str, result};
+use core::{str, result, u32};
 use core::str::{SplitWhitespace};
 
 pub struct Counter {
@@ -82,6 +82,8 @@ pub fn match_usb_serial_buf(
         print_menu(serial);
     }
     else {
+        write_serial(serial, buf, false);
+        write_serial(serial, "\n\r", false);
         message_parse_build(buf, serial);
     }
 }
@@ -117,14 +119,71 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
     false
 }
 
+
+
+// Helper function that takes list of bytes and deconstructs
+// into HostRequest fields. 
+// NOTE: Preliminary behavior is to drop message and log to serial an invalid message
+// if fields are missing or invalid
+pub fn message_parse_build<'input>(input: &'input str,
+    serial: &mut SerialPort<'static, hal::usb::UsbBus>
+    ) {
+    let mut payload = [0u32; 4];
+
+    // Split up the given string
+    let mut HR = HostRequest::new();
+    let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
+    let mut command = words(input);
+    let command_count = command.clone().count();
+    if command_count > 6 {
+        return write_serial(serial, "Too many arguments!\n\r", false);
+    }
+    // Match on the first word
+    match command.next() {
+        Some("smi" | "SMI") => {
+            HR.set_interface(ValidInterfaces::SMI);
+            write_serial(serial, "got smi\n\r", false);
+        }
+        _ => {
+            return write_serial(serial, "Invalid Interface\n\r", false);
+        }
+    }
+    // Match on the second word
+    match command.next() {
+        Some("r" | "R") => {
+            HR.set_operation(ValidOps::Read);
+            write_serial(serial, "got read\n\r", false);
+        }
+        Some("w" | "W") => {
+            HR.set_operation(ValidOps::Write);
+        }
+        _ => {
+            return write_serial(serial, "Invalid Operation\n\r", false);  
+        }
+    }
+    let mut i: u8 = 0;
+    while i < (command_count - 3) as u8 {
+        let val = command.nth(0).unwrap();
+        // Match on the third word
+            write_serial(serial, val, false);
+            match bytes_to_number(val) {
+                Ok(value) => {
+                    write_serial(serial, "value ok\n\r", true);
+                }
+                Err(err) => {
+                    write_serial(serial, err, true);
+                    write_serial(serial, "\n\r", false);
+                }
+        }
+        i+=1;
+    }
+}
+
 // Helper function to take &str in decimal or hex form
 // and return u32.
 // ie: s = "0xFF"  will return decimal value 255
-
-// TODO add case fix for when "" input returns 0. This should return ERR
 pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
     let mut result: u32 = 0;
-
     // Check if the input is hex or decimal
     let mut chars = s.chars();
     if let Some(c) = chars.next() {
@@ -161,56 +220,5 @@ pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
     }
     Ok(result)
     // It is decimal form
-}
-
-// Helper function that takes list of bytes and deconstructs
-// into HostRequest fields. 
-// NOTE: Preliminary behavior is to drop message and log to serial an invalid message
-// if fields are missing or invalid
-pub fn message_parse_build<'input>(input: &'input str,
-    serial: &mut SerialPort<'static, hal::usb::UsbBus>,
-    ) {
-    let mut payload = [0u32; 4];
-
-    // Split up the given string
-    let mut HR = HostRequest::new();
-    let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
-    let mut command = words(input);
-    let command_count = command.clone().count();
-    if command_count > 5 {
-        write_serial(serial, "Too many arguments!\n\r", false);
-    }
-    // Match on the first word
-    match command.next() {
-        Some("smi" | "SMI") => {
-            HR.set_interface(ValidInterfaces::SMI);
-        }
-        _ => {
-            write_serial(serial, "Invalid Interface", false);
-        }
-    }
-    // Match on the second word
-    match command.next() {
-        Some("r" | "R") => {
-            HR.set_operation(ValidOps::Read);
-        }
-        Some("w" | "W") => {
-            HR.set_operation(ValidOps::Write);
-        }
-        _ => {
-            write_serial(serial, "Invalid Operation", false);  
-        }
-    }
-    for (i, word) in  command.enumerate() {
-    // Match on the third word
-        match bytes_to_number(word) {
-            Ok(value) => {
-                payload[i] = value;
-            }
-            Err(err) => {
-                return write_serial(serial, err, false) 
-            }
-        }
-    }
 }
 
