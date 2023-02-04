@@ -76,16 +76,13 @@ pub fn match_usb_serial_buf(
     let buf =  str::from_utf8(buf).unwrap();
     write_serial(serial, "\n\r", false);
     //write_serial(serial, buf, false);
-    if slice_contains(buf, "smi") {
-        write_serial(serial, "success\n\r", false);
-    }
 
     if slice_contains(buf, "menu") {
         // write_serial(serial, "success\n\r", false);
         print_menu(serial);
     }
     else {
-        write_serial(serial, "Invalid Command! \n\r", false);
+        message_parse_build(buf, serial);
     }
 }
 
@@ -139,12 +136,19 @@ pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
                         '0'..='9' => c as u32 - '0' as u32,
                         _ => return Err("Invalid decimal character"),
                     };
+                    if result >= 429_496_720 {
+                        return Err("Integer number too large!")
+                    }
                     result = result * 10 + digit;
+                    
                 }
                 return Ok(result)
             }
             return Err("Not a hex or decimal string")
         }
+    }
+    if chars.clone().count() > 8 {
+        return Err("Integer number too large!")
     }
     for c in chars {
         let digit =  match c {
@@ -164,40 +168,49 @@ pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
 // if fields are missing or invalid
 pub fn message_parse_build<'input>(input: &'input str,
-    serial: &mut SerialPort<'static, hal::usb::UsbBus>) {
+    serial: &mut SerialPort<'static, hal::usb::UsbBus>,
+    ) {
     let mut payload = [0u32; 4];
 
     // Split up the given string
     let mut HR = HostRequest::new();
     let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
     let mut command = words(input);
+    let command_count = command.clone().count();
+    if command_count > 5 {
+        write_serial(serial, "Too many arguments!\n\r", false);
+    }
     // Match on the first word
-    match command.next().unwrap() {
-        "smi" | "SMI" => {
-            HR.set_interface(ValidInterfaces::SMI)
+    match command.next() {
+        Some("smi" | "SMI") => {
+            HR.set_interface(ValidInterfaces::SMI);
         }
         _ => {
             write_serial(serial, "Invalid Interface", false);
         }
     }
     // Match on the second word
-    match command.next().unwrap() {
-        "r" | "R" => {
+    match command.next() {
+        Some("r" | "R") => {
             HR.set_operation(ValidOps::Read);
         }
+        Some("w" | "W") => {
+            HR.set_operation(ValidOps::Write);
+        }
         _ => {
-            write_serial(serial, "Invalid Operation", false);
+            write_serial(serial, "Invalid Operation", false);  
         }
     }
-
+    for (i, word) in  command.enumerate() {
     // Match on the third word
-    let data = command.next().unwrap();
-    // Check if hex 
- 
-    payload[0] = bytes_to_number(data).unwrap();
-    
- 
+        match bytes_to_number(word) {
+            Ok(value) => {
+                payload[i] = value;
+            }
+            Err(err) => {
+                return write_serial(serial, err, false) 
+            }
+        }
+    }
 }
-
-
 
