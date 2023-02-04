@@ -125,7 +125,7 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 // if fields are missing or invalid
 pub fn message_parse_build<'input>(input: &'input str,
     serial: &mut SerialPort<'static, hal::usb::UsbBus>
-    ) {
+    ) -> Result<HostRequest<Host::Unclean>, &'static str>{
     let mut payload = [0u32; 4];
 
     // Split up the given string
@@ -134,7 +134,8 @@ pub fn message_parse_build<'input>(input: &'input str,
     let mut command = words(input);
     let command_count = command.clone().count();
     if command_count > 6 {
-        return write_serial(serial, "Too many arguments!\n\r", false);
+        write_serial(serial, "Too many arguments!\n\r", false);
+        return Err("Too many arguments")
     }
     // Match on the first word
     match command.next() {
@@ -143,10 +144,11 @@ pub fn message_parse_build<'input>(input: &'input str,
             write_serial(serial, "got smi\n\r", false);
         }
         _ => {
-            return write_serial(serial, "Invalid Interface\n\r", false);
+            write_serial(serial, "Invalid Interface\n\r", false);
+            return Err("Invalid Interface")
         }
     }
-    // Match on the second word
+    // Match on the second word. This should be an operation. If not log incorrect
     match command.next() {
         Some("r" | "R") => {
             HR.set_operation(ValidOps::Read);
@@ -156,25 +158,28 @@ pub fn message_parse_build<'input>(input: &'input str,
             HR.set_operation(ValidOps::Write);
         }
         _ => {
-            return write_serial(serial, "Invalid Operation\n\r", false);  
+            write_serial(serial, "Invalid Operation\n\r", false);  
+            return Err("Invalid Operation");
         }
     }
-    let mut i: u8 = 0;
-    while i < (command_count - 3) as u8 {
+    let mut size: u8 = 0;
+    while size < (command_count - 3) as u8 {
         let val = command.nth(0).unwrap();
         // Match on the third word
             write_serial(serial, val, false);
             match bytes_to_number(val) {
                 Ok(value) => {
-                    write_serial(serial, "value ok\n\r", true);
+                    payload[size as usize] = value;
                 }
                 Err(err) => {
-                    write_serial(serial, err, true);
-                    write_serial(serial, "\n\r", false);
+                    return Err(err)
                 }
         }
-        i+=1;
+        size+=1;
     }
+    HR.set_size(size);
+    HR.set_payload(payload);
+    Ok(HR)
 }
 
 // Helper function to take &str in decimal or hex form
