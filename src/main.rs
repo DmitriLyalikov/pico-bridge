@@ -29,12 +29,13 @@ mod protocol;
 const PIO_CLK_DIV_INT: u16 = 1;
 const PIO_CLK_DIV_FRAQ: u8 = 255;
 
-#[rtic::app(device = rp_pico::pac, peripherals = true)]
+#[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP] )]
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
     use rp_pico::hal as hal;
     use rp_pico::pac;
+    use heapless::spsc::{Consumer, Producer, Queue};
 
     use hal::{clocks::Clock,
         spi,
@@ -52,7 +53,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
-    use crate::protocol::{Host::HostRequest, Slave::SlaveResponse};
+    use crate::protocol::{Send, Host::{HostRequest, Clean, ValidInterfaces}, Slave::{NotReady, SlaveResponse}};
     use core::str;
 
 
@@ -95,9 +96,13 @@ mod app {
     struct Local {
         spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
+
+        producer: Producer<'static, SlaveResponse<NotReady>, 3>,
+        consumer: Consumer<'static, SlaveResponse<NotReady>, 3>,
     }
 
-    #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None])]
+    #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None,
+        q: Queue<SlaveResponse<NotReady>, 3> = Queue::new()])]
     fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
         // Initialization of the system clock.
@@ -241,9 +246,12 @@ mod app {
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
         let smi_master = sm.start();
-
+        
         let mut serial_buf = [0_u8; 64];
-               
+        // q has 'static lifetime so after the split and return of 'init'
+        // it will continue to exist and be allocated
+        let (producer, consumer) = c.local.q.split();
+        
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
 
@@ -266,6 +274,9 @@ mod app {
             Local {
                 spi_dev: spi_dev,
                 uart_dev: uart, 
+
+                producer,
+                consumer,
             },
             init::Monotonics(),
         )
@@ -334,7 +345,23 @@ mod app {
                                             }
                                         }
                                     }
-                                    match_usb_serial_buf(serial_buf, serial_a); 
+                                    match match_usb_serial_buf(serial_buf, serial_a) {
+                                        Ok(hr) => { // Got a Host Request from the Serial Port
+                                            let clean = hr.init_clean(); // Validate it
+                                            match clean {
+                                                Ok(hr) => {
+                                                    send_out::spawn(hr);  // Send our clean host request to its destination
+                                                }
+                                                Err(err) =>  {
+                                                    write_serial(serial_a, err, false);
+                                                }
+                                            } 
+                                        }
+                                        Err("Ok") => { }// We processed a simple command without constructing a Host Request
+                                        Err(err) => {
+                                            write_serial(serial_a, err, false); // Print the error back to the Serial port
+                                        }
+                                    }
                                     // Reset serial buffer
                                     for elem in serial_buf.iter_mut() {
                                         *elem = 0;
@@ -366,9 +393,27 @@ mod app {
     // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
-    #[task(priority = 3)]
-    fn send_out(cx: send_out::Context) {
-
+    #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx])]
+    fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
+        match hr.interface {
+            ValidInterfaces::SMI => {
+                let mut i = 0;
+                while i < hr.size {
+                    //smi_tx.write(self.payload[i]);
+                    i += 1;
+                }
+            }
+            _ => {}
+        }
+        let slave_response = hr.send_out();
+        match slave_response {
+            Ok(val) => {
+                // enqueue
+            }
+            Err(err) => {
+                // write_serial(, buf, block);
+            }
+        }
     }
 
     // Hardware task associated with PIO0_IRQ_0

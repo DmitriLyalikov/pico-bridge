@@ -5,10 +5,10 @@
     use self::Slave::{SlaveResponse, NotReady, SlaveErr, HostErr};
 
     pub trait Send{
-        fn send_out(&mut self) -> Result<SlaveResponse<NotReady>, SlaveErr> {
+        fn send_out(&mut self) -> Result<SlaveResponse<NotReady>, &'static str> {
             // Match on the device facing interface and send payload to its TX FIFO
             // Return the constructed SlaveResponse
-            Ok(SlaveResponse::new())
+            Ok (SlaveResponse::new())
         }
     }
 
@@ -70,12 +70,12 @@ pub mod Host {
     pub struct HostRequest<S: State> {
         state: PhantomData<S>,
         proc_id: u8,
-        interface: ValidInterfaces,
+        pub  interface: ValidInterfaces,
         host_config: ValidHostInterfaces,
         operation: ValidOps,
         checksum: u8,         // Wrapping checksum
-        size: u8,             // A value between 0 and 4
-        payload: [u32; 4],     // Max payload size over SPI is 4 bytes 
+        pub size: u8,             // A value between 0 and 4
+        pub payload: [u32; 4],     // Max payload size over SPI is 4 bytes 
 
     }
 
@@ -95,21 +95,7 @@ pub mod Host {
     }
     
     impl Send for HostRequest<Clean> {
-        fn send_out(&mut self) -> Result<super::Slave::SlaveResponse<super::Slave::NotReady>, super::Slave::SlaveErr> {
-            match self.interface {
-                ValidInterfaces::Config => {
-                    // SysConfig_Handler::Spawn(self.operation, self.size, self.payload)
-                }
-                ValidInterfaces::SMI => {
-                    // SMI_Handler::Spawn(self.operation, self.size, self.payload)
-                }
-                ValidInterfaces::JTAG => {
-                    // JTAG_Handler::Spawn(self.operation, self.payload)
-                }
-                _ => {
-                    // Do something 
-                }
-            }
+        fn send_out(&mut self) -> Result<super::Slave::SlaveResponse<super::Slave::NotReady>, &'static str> {
             let mut SR = SlaveResponse::new();
             SR.set_host_config( self.host_config);
             SR.set_proc_id(self.proc_id);
@@ -169,12 +155,18 @@ pub mod Host {
             match self.interface {
                 ValidInterfaces::SMI => {
                     // If it is SMI Read, we need PHY address and REG address
-                    if self.operation == ValidOps::Read && self.size != 2 {
-                        return Err("Invalid Arguments for SMI: Read")
+                    if self.operation == ValidOps::Read {
+                        if self.size != 2 {return Err("Invalid Arguments for SMI: Read")}
+                        // Opcode    PhyAddr               RedAddr
+                        self.payload[0] = 2 | self.payload[0] << 2 | self.payload[1] << 7;
+                        self.size = 1;
                     }
                     // If it is SMI Write, we need PHY address and REG address + Data
                     else if self.operation == ValidOps::Write && self.size != 3 {
-                        return Err("Invalid Arguments for SMI: Write ")
+                        if self.size != 3 {return Err("Invalid Arguments for SMI: Write ")}
+                        self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7;
+                        self.payload[1] = self.payload[2];
+                        self.size = 2;
                     }
                 }
                 ValidInterfaces::Config => {

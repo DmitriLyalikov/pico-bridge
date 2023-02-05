@@ -68,19 +68,19 @@ pub fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &st
 }
 
 // Match the Serial Input commands to a hardware/software request
-pub fn match_usb_serial_buf(
-    buf: &[u8; 64],
-    serial: &mut SerialPort<'static, hal::usb::UsbBus>,
-) {
-    let buf =  str::from_utf8(buf).unwrap();
+pub fn match_usb_serial_buf( buf: &[u8; 64],
+    serial: &mut SerialPort<'static, hal::usb::UsbBus> ) 
+    -> Result<HostRequest<Host::Unclean>, &'static str> {
+    let buf = str::from_utf8(buf).unwrap();
     write_serial(serial, "\n\r", false);
 
     if slice_contains(buf, "menu") {
         print_menu(serial);
+        Err("Ok")
     }
     else {
         write_serial(serial, "\n\r", false);
-        message_parse_build(buf, serial);
+        message_parse_build(buf, serial)
     }
 }
 
