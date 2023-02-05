@@ -256,7 +256,11 @@ Another speedup can configure the DMA to automatically read the PIO RX FIFO cont
 ### UART/SPI
 How to setup communication between the Pico and Host for each interface
 
-## Command List
+## Serial Command List 
+* menu : print the Serial Command List menu
+* smi r [Phy-Address] [Reg-Address] : SMI read register on a Phy Address
+* smi w [Phy-Address] [Reg-Address] [data] SMI write register on a Phy address
+
 ## Interface Defaults
 Clock rates, pin assignments, etc...
 ## Testing
@@ -282,8 +286,6 @@ Capture Signal Integrity characteristics across different frequencies, all DUT f
     
 * **Protocol Tests**   
 
-Test across all host-facing interfaces
-  
     * Invalid Interface
     * Invalid Size
     * Buffer Overflow
