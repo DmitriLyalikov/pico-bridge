@@ -132,7 +132,7 @@ pub fn message_parse_build<'input>(input: &'input str,
     let mut command = words(input);
     let command_count = command.clone().count();
     if command_count > 6 {
-        return Err("Too many arguments")
+        return Err("Too many arguments\n\r")
     }
     // Match on the first word
     match command.next() {
@@ -140,7 +140,7 @@ pub fn message_parse_build<'input>(input: &'input str,
             HR.set_interface(ValidInterfaces::SMI);
         }
         _ => {
-            return Err("Invalid Interface")
+            return Err("Invalid Interface\n\r")
         }
     }
     // Match on the second word. This should be an operation. If not log incorrect
@@ -152,7 +152,7 @@ pub fn message_parse_build<'input>(input: &'input str,
             HR.set_operation(ValidOps::Write);
         }
         _ => {
-            return Err("Invalid Operation");
+            return Err("Invalid Operation\n\r");
         }
     }
     let mut size: u8 = 0;
@@ -187,28 +187,28 @@ pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
                 for c in chars {
                     let digit= match c {
                         '0'..='9' => c as u32 - '0' as u32,
-                        _ => return Err("Invalid decimal character"),
+                        _ => return Err("Invalid decimal character\n\r"),
                     };
                     if result >= 429_496_720 {
-                        return Err("Integer number too large!")
+                        return Err("Integer number too large!\n\r")
                     }
                     result = result * 10 + digit;
                     
                 }
                 return Ok(result)
             }
-            return Err("Not a hex or decimal string")
+            return Err("Not a hex or decimal string\n\r")
         }
     }
     if chars.clone().count() > 8 {
-        return Err("Integer number too large!")
+        return Err("Integer number too large!\n\r")
     }
     for c in chars {
         let digit =  match c {
             '0'..='9' => c as u32 - '0' as u32,
             'a'..='f' => c as u32 - 'a' as u32 + 10,
             'A'..='F' => c as u32 - 'A' as u32 + 10,
-            _ => return Err("Invalid hex character"),
+            _ => return Err("Invalid hex character\n\r"),
         };
         result = result * 16 + digit;
     }

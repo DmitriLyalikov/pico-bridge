@@ -156,14 +156,14 @@ pub mod Host {
                 ValidInterfaces::SMI => {
                     // If it is SMI Read, we need PHY address and REG address
                     if self.operation == ValidOps::Read {
-                        if self.size != 2 {return Err("Invalid Arguments for SMI: Read")}
+                        if self.size != 2 {return Err("Invalid Arguments for SMI: Read\n\r")}
                         // Opcode    PhyAddr               RedAddr
                         self.payload[0] = 2 | self.payload[0] << 2 | self.payload[1] << 7;
                         self.size = 1;
                     }
                     // If it is SMI Write, we need PHY address and REG address + Data
                     else if self.operation == ValidOps::Write && self.size != 3 {
-                        if self.size != 3 {return Err("Invalid Arguments for SMI: Write ")}
+                        if self.size != 3 {return Err("Invalid Arguments for SMI: Write\n\r")}
                         self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7;
                         self.payload[1] = self.payload[2];
                         self.size = 2;
@@ -173,7 +173,7 @@ pub mod Host {
                 }
 
                 ValidInterfaces::None => {
-                    return Err("No Interface Selected")
+                    return Err("No Interface Selected\n\r")
                 }
                 _ => {
 
