@@ -29,6 +29,7 @@
     }
 
 pub mod Host {
+    use core::fmt::Write;
     use core::{marker::PhantomData};
     use super::Send;
     use super::{SlaveResponse, ValidHostInterfaces};
@@ -48,6 +49,7 @@ pub mod Host {
     impl State for Unclean {}
     impl State for Clean {}
 
+    #[derive(PartialEq)]
     pub enum ValidOps  {
         None = 0b000,
         Read = 0b001,
@@ -78,8 +80,8 @@ pub mod Host {
     }
 
     impl <S: State> HostRequest<S>{
-        fn transition<To: State>(self, _: To) -> HostRequest<To> {
-            HostRequest {
+        fn transition<To: State>(self, _: To) -> Result<HostRequest<To>, &'static str> {
+           Ok(HostRequest {
                 state: PhantomData,
                 proc_id: self.proc_id,
                 interface: self.interface,
@@ -88,7 +90,7 @@ pub mod Host {
                 checksum: self.checksum,
                 size: self.size,       
                 payload: self.payload,
-            }
+            })
         }
     }
     
@@ -159,9 +161,32 @@ pub mod Host {
             self.interface = interface;
         }
 
-        pub fn init_clean(mut self) -> HostRequest<Clean> {
+        // This will validate all the interface rules for our HostRequest
+        pub fn init_clean(mut self) -> Result<HostRequest<Clean>, &'static str> {
             // if let valid_packet = checksum(self.checksum) ...
             // Any other kind of packet sanitizing
+
+            match self.interface {
+                ValidInterfaces::SMI => {
+                    // If it is SMI Read, we need PHY address and REG address
+                    if self.operation == ValidOps::Read && self.size != 2 {
+                        return Err("Invalid Arguments for SMI: Read")
+                    }
+                    // If it is SMI Write, we need PHY address and REG address + Data
+                    else if self.operation == ValidOps::Write && self.size != 3 {
+                        return Err("Invalid Arguments for SMI: Write ")
+                    }
+                }
+                ValidInterfaces::Config => {
+                }
+
+                ValidInterfaces::None => {
+                    return Err("No Interface Selected")
+                }
+                _ => {
+
+                }
+            }
             self.transition(Clean {__private: () })
         } 
     }
@@ -194,14 +219,14 @@ pub mod Slave {
     }
 
     impl <S: State> SlaveResponse<S>{
-        fn transition<To: State>(self, _: To) -> SlaveResponse<To> {
-            SlaveResponse {
+        fn transition<To: State>(self, _: To) -> Result<SlaveResponse<To>, &'static str> {
+            Ok(SlaveResponse {
                 state: PhantomData,
                 proc_id: self.proc_id,
                 host_config: self.host_config,
                 size: self.size,       
                 payload: self.payload,
-            }
+            })
         }
     }
 
@@ -254,9 +279,10 @@ pub mod Slave {
         pub fn set_payload(&mut self, payload: [u32; 4]) {
             self.payload = payload;
         }
-
-        pub fn init_ready(mut self) -> SlaveResponse<Ready> {
+    
+        pub fn init_ready(mut self) -> Result<SlaveResponse<Ready>, &'static str> {
             // if let valid_packet = checksum(self.checksum) ...
+            // This will validate all the interface rules for our HostRequest, 
             // Any other kind of packet sanitizing
             self.transition(Ready {__private: () })
         }
