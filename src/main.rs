@@ -363,6 +363,14 @@ mod app {
             )
         }
 
+    // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
+    // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
+    // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
+    #[task(priority = 3)]
+    fn send_out(cx: send_out::Context) {
+
+    }
+
     // Hardware task associated with PIO0_IRQ_0
     // Takes control of shared state machine and rx fifo of PIO_0 SM_0 
     // Reads rx fifo into buffer and pushed to queue, spawn software task to return value
