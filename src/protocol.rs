@@ -143,6 +143,10 @@ pub mod Host {
             self.size = size
         }
 
+        pub fn set_host_config(&mut self, cfg: ValidHostInterfaces) {
+            self.host_config = cfg
+        }
+
         pub fn set_payload(&mut self, payload: [u32; 4]) {
             self.payload =  payload;
         }

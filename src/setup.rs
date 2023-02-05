@@ -1,4 +1,4 @@
-use crate::protocol::Host::{self, HostRequest, ValidInterfaces, ValidOps};
+use crate::protocol::{ValidHostInterfaces,  Host::{self, HostRequest, ValidInterfaces, ValidOps}};
 
 use rp_pico::hal as hal;
 // USB Device support 
@@ -70,19 +70,15 @@ pub fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &st
 // Match the Serial Input commands to a hardware/software request
 pub fn match_usb_serial_buf(
     buf: &[u8; 64],
-    // Add any accessed 'static peripherals (PIO, SPI, etc) that will be controlled by host
     serial: &mut SerialPort<'static, hal::usb::UsbBus>,
 ) {
     let buf =  str::from_utf8(buf).unwrap();
     write_serial(serial, "\n\r", false);
-    //write_serial(serial, buf, false);
 
     if slice_contains(buf, "menu") {
-        // write_serial(serial, "success\n\r", false);
         print_menu(serial);
     }
     else {
-        write_serial(serial, buf, false);
         write_serial(serial, "\n\r", false);
         message_parse_build(buf, serial);
     }
@@ -92,14 +88,14 @@ pub fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
     let mut _buf = [0u8; 273];
     // Create the Menu.
     let menu_str = "***************** \n\r
-*  RP2040 RPC \n\r
+*  pico-bridge USB Serial Interface \n\r
+*  Send system or device interface commands \n\r
 *  Menu:\n\r
-* \n\r
 *  M / m - Print menu \n\r
-*    0   - smi r phyAddr RegAddr \n\r
-*    1   - smi w phyAddr RegAddr Data \n\r
-*    2   - smi reset \n\r
-*    3   - smi setclk frequency \n\r
+*    - smi r phyAddr RegAddr \n\r
+*    - smi w phyAddr RegAddr Data \n\r
+*    - smi reset \n\r
+*    - smi setclk frequency \n\r
 ***************** \n\r
 Enter option: ";
 
@@ -124,27 +120,26 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
 // if fields are missing or invalid
 pub fn message_parse_build<'input>(input: &'input str,
-    serial: &mut SerialPort<'static, hal::usb::UsbBus>
-    ) -> Result<HostRequest<Host::Unclean>, &'static str>{
+    serial: &mut SerialPort<'static, hal::usb::UsbBus>) 
+    -> Result<HostRequest<Host::Unclean>, &'static str>{
     let mut payload = [0u32; 4];
 
     // Split up the given string
     let mut HR = HostRequest::new();
+    HR.set_host_config(ValidHostInterfaces::Serial);
+
     let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
     let mut command = words(input);
     let command_count = command.clone().count();
     if command_count > 6 {
-        write_serial(serial, "Too many arguments!\n\r", false);
         return Err("Too many arguments")
     }
     // Match on the first word
     match command.next() {
         Some("smi" | "SMI") => {
             HR.set_interface(ValidInterfaces::SMI);
-            write_serial(serial, "got smi\n\r", false);
         }
         _ => {
-            write_serial(serial, "Invalid Interface\n\r", false);
             return Err("Invalid Interface")
         }
     }
@@ -152,27 +147,23 @@ pub fn message_parse_build<'input>(input: &'input str,
     match command.next() {
         Some("r" | "R") => {
             HR.set_operation(ValidOps::Read);
-            write_serial(serial, "got read\n\r", false);
         }
         Some("w" | "W") => {
             HR.set_operation(ValidOps::Write);
         }
         _ => {
-            write_serial(serial, "Invalid Operation\n\r", false);  
             return Err("Invalid Operation");
         }
     }
     let mut size: u8 = 0;
     while size < (command_count - 3) as u8 {
         let val = command.nth(0).unwrap();
-        // Match on the third word
-            write_serial(serial, val, false);
             match bytes_to_number(val) {
                 Ok(value) => {
                     payload[size as usize] = value;
                 }
                 Err(err) => {
-                    return Err(err)
+                    return Err(err) 
                 }
         }
         size+=1;
@@ -222,6 +213,4 @@ pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
         result = result * 16 + digit;
     }
     Ok(result)
-    // It is decimal form
 }
-
