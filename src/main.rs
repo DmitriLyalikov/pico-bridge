@@ -93,7 +93,7 @@ mod app {
 
     #[local]
     struct Local {
-        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
+        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
 
         producer: Producer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to writng to queue
@@ -137,7 +137,7 @@ mod app {
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_miso = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_cs = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
-        let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
+        let spi = hal::Spi::<_, _, 16>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
         let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
           
@@ -294,13 +294,13 @@ mod app {
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
     fn spi0_irq(cx: spi0_irq::Context) {
-        let mut tx_buf = [1_u8, 2, 3, 4, 5, 6];
-        let mut _rx_buf = [0_u8; 6];
+        let mut tx_buf = [1_u16, 2, 3, 4, 5, 6, 7, 8, 9];
+        let mut _rx_buf = [0_u16; 9];
         let rx = cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
         // Received bytes, Now build our HostRequest
         let mut message = HostRequest::new();
         // Interface first 3 bits of Packet 1
-        let interface = ((rx[0] >> 5) & 0b111) as u8;
+        let interface = ((rx[0] >> 13) & 0b111) as u16;
         match ValidInterfaces::try_from(interface) {
             Ok(interface) => {
                 message.set_interface(interface);
@@ -310,7 +310,7 @@ mod app {
             }
         }
         // Operation next 3 bits of Packet 1
-        let operation = ((rx[0] >> 2) & 0b111) as u8;
+        let operation = ((rx[0] >> 11) & 0b111) as u16;
         match ValidOps::try_from(operation) {
             Ok(op) => {
                 message.set_operation(op);
@@ -319,16 +319,13 @@ mod app {
                 // return write_serial(serial, "Invalid Operation\n\r", false)
             }
         }
-        // 2-Bit Payload will be last two bits of packet 1
-        let proc_id = ((rx[0] & 0b11)) as u8;
-        let mut payload = [0u8; 4];
-        payload[0] = rx[1];
-        payload[1] = rx[2];
-        payload[2] = rx[3];
-        payload[3] = rx[4];
-        
-        
-        message.set_proc_id(proc_id);
+        let size = (((rx[0] >> 7) & 0b11_1111) | ((rx[0] >> 6) & 0b1_0000)) as u8 * 2;
+        let mut payload = [0u32; 4];
+        if size != 0 {
+            payload[i] = (rx[i] as u32) << 16 | rx[i+1] as u32;
+        }
+
+        message.set_size(size);
         message.set_host_config(ValidHostInterfaces::SPI);
         message.set_payload(payload);
           

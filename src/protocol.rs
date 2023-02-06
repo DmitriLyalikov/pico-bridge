@@ -59,10 +59,10 @@ pub mod Host {
         GetClk,
     }
 
-    impl TryFrom<u8> for ValidOps {
+    impl TryFrom<u16> for ValidOps {
         type Error = ();
     
-        fn try_from(num: u8) -> Result<Self, Self::Error> {
+        fn try_from(num: u16) -> Result<Self, Self::Error> {
             match num {
                 0 => Ok(ValidOps::None),
                 1 => Ok(ValidOps::Read),
@@ -84,10 +84,10 @@ pub mod Host {
         Config,
     }
 
-    impl TryFrom<u8> for ValidInterfaces {
+    impl TryFrom<u16> for ValidInterfaces {
         type Error = ();
     
-        fn try_from(num: u8) -> Result<Self, Self::Error> {
+        fn try_from(num: u16) -> Result<Self, Self::Error> {
             match num {
                 0 => Ok(ValidInterfaces::None),
                 1 => Ok(ValidInterfaces::SMI),
