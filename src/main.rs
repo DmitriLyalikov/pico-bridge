@@ -52,9 +52,12 @@ mod app {
 
     use fugit::RateExtU32;
 
+    use crate::protocol::Host::ValidOps;
+    use crate::protocol::ValidHostInterfaces;
     use crate::serial::{Counter, match_usb_serial_buf, write_serial, print_menu};
-    use crate::protocol::{Send, Host::{HostRequest, Clean, ValidInterfaces}, Slave::{NotReady, SlaveResponse}};
+    use crate::protocol::{Send, Host::{HostRequest, Clean, ValidInterfaces,}, Slave::{NotReady, SlaveResponse}};
     use core::str;
+    use core::convert::TryFrom;
 
 
     /// Clock divider for the PIO SM
@@ -81,14 +84,10 @@ mod app {
         // SMI PIO RX FIFO
         smi_rx: hal::pio::Rx<(pac::PIO0, SM0)>,
 
-        // A single Message struct that is constructed when a command is given
-        // TODO: Place in queue
-        // message: HostRequest<crate::protocol::Unclean>,
-
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
         
-        // Used for internal logic in USB_IRQ to count characters.
+        // Used in USB_IRQ to count characters.
         counter: Counter,
     }
 
@@ -97,8 +96,8 @@ mod app {
         spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
 
-        producer: Producer<'static, SlaveResponse<NotReady>, 3>,
-        consumer: Consumer<'static, SlaveResponse<NotReady>, 3>,
+        producer: Producer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to writng to queue
+        consumer: Consumer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to read to queue 
     }
 
     #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None,
@@ -189,7 +188,13 @@ mod app {
         // Reset the counter
         let counter = Counter::new();
 
-        let _mdio_pin = pins.gpio15.into_mode::<hal::gpio::FunctionPio0>();
+         //*****
+        // Initialization of the PIO0 and SMI state machine
+        
+        // 
+
+        let _mdio_pin = pins.gpio2.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdc_pin = pins.gpio3.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
         "
         .side_set 1",
@@ -233,16 +238,16 @@ mod app {
         let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
         let installed = pio.install(&program.program).unwrap();
         let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
-            .out_pins(1, 1)
-            .side_set_pin_base(2)
-            .out_sticky(false)
-            .clock_divisor_fixed_point(PIO_CLK_DIV_INT, PIO_CLK_DIV_FRAQ)
+            .out_pins(2, 1)
+            .side_set_pin_base(3)
+            .out_sticky(true)
+            .clock_divisor_fixed_point(PIO_CLK_DIV_INT, PIO_CLK_DIV_FRAQ) // freq = 1 / (int + (frac/256))
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
             .pull_threshold(0)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
-            .set_pins(1, 1)
-            .in_pin_base(1)
+            .set_pins(2, 1)
+            .in_pin_base(2)
             .build(sm0);
         sm.set_pindirs([(1, PinDir::Output)]);
         let smi_master = sm.start();
@@ -296,14 +301,31 @@ mod app {
         let mut message = HostRequest::new();
         // Interface first 3 bits of Packet 1
         let interface = ((rx[0] >> 5) & 0b111) as u8;
+        match ValidInterfaces::try_from(interface) {
+            Ok(interface) => {
+                message.set_interface(interface);
+            }
+            _ => {
+                // return write_serial(serial, "Invalid Interface\n\r", false)
+            }
+        }
         // Operation next 3 bits of Packet 1
         let operation = ((rx[0] >> 2) & 0b111) as u8;
+        match ValidOps::try_from(operation) {
+            Ok(op) => {
+                message.set_operation(op);
+            }
+            _ => {
+                // return write_serial(serial, "Invalid Operation\n\r", false)
+            }
+        }
         // 2-Bit Payload will be last two bits of packet 1
         let proc_id = ((rx[0] & 0b11)) as u8;
-        /* 
+        
         message.set_proc_id(proc_id);
-        message.set_interface(interface);
-        message.set_operation(operation); */
+        message.set_host_config(ValidHostInterfaces::SPI);
+        
+
         
         
         

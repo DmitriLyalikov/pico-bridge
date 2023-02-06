@@ -31,6 +31,7 @@
 pub mod Host {
     use core::fmt::Write;
     use core::{marker::PhantomData};
+    use core::convert::TryFrom;
     use super::Send;
     use super::{SlaveResponse, ValidHostInterfaces};
 
@@ -58,6 +59,22 @@ pub mod Host {
         GetClk = 0b100,
     }
 
+    impl TryFrom<u8> for ValidOps {
+        type Error = ();
+    
+        fn try_from(num: u8) -> Result<Self, Self::Error> {
+            match num {
+                0 => Ok(ValidOps::None),
+                1 => Ok(ValidOps::Read),
+                2 => Ok(ValidOps::Write),
+                3 => Ok(ValidOps::SetClk),
+                4 =>  Ok(ValidOps::GetClk),
+                // ... add more variants here
+                _ => Err(()),
+            }
+        }
+    }
+
     pub enum ValidInterfaces  {
         None = 0b000,
         SMI = 0b001,
@@ -65,6 +82,23 @@ pub mod Host {
         I2C = 0b011,
         SPI = 0b100,
         Config = 0b101,
+    }
+
+    impl TryFrom<u8> for ValidInterfaces {
+        type Error = ();
+    
+        fn try_from(num: u8) -> Result<Self, Self::Error> {
+            match num {
+                0 => Ok(ValidInterfaces::None),
+                1 => Ok(ValidInterfaces::SMI),
+                2 => Ok(ValidInterfaces::JTAG),
+                3 => Ok(ValidInterfaces::I2C),
+                4 =>  Ok(ValidInterfaces::SPI),
+                5 => Ok(ValidInterfaces::Config),
+                // ... add more variants here
+                _ => Err(()),
+            }
+        }
     }
 
     pub struct HostRequest<S: State> {
