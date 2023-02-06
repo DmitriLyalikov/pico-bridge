@@ -1,3 +1,0 @@
-cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\rp2040-pac-7a28d4addd0d94dd\out
-cargo:rerun-if-changed=device.x
-cargo:rerun-if-changed=build.rs

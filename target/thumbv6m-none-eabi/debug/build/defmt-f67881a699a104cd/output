@@ -1,2 +1,0 @@
-cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\defmt-f67881a699a104cd\out
-cargo:rustc-cfg=no_cas

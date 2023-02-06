@@ -1,3 +1,0 @@
-cargo:rustc-cfg=rustc_is_nightly
-cargo:rustc-cfg=armv6m
-cargo:rerun-if-changed=build.rs
