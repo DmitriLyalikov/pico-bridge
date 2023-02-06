@@ -22,7 +22,7 @@ use defmt_rtt as _;
 use panic_halt as _;
 
 mod fmt;
-mod setup;
+mod serial;
 mod protocol;
 
 /// Clock divider for the PIO SM
@@ -52,7 +52,7 @@ mod app {
 
     use fugit::RateExtU32;
 
-    use crate::setup::{Counter, match_usb_serial_buf, write_serial, print_menu};
+    use crate::serial::{Counter, match_usb_serial_buf, write_serial, print_menu};
     use crate::protocol::{Send, Host::{HostRequest, Clean, ValidInterfaces}, Slave::{NotReady, SlaveResponse}};
     use core::str;
 
@@ -251,7 +251,7 @@ mod app {
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
-        
+
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
 
