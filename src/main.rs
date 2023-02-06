@@ -321,14 +321,17 @@ mod app {
         }
         // 2-Bit Payload will be last two bits of packet 1
         let proc_id = ((rx[0] & 0b11)) as u8;
+        let mut payload = [0u8; 4];
+        payload[0] = rx[1];
+        payload[1] = rx[2];
+        payload[2] = rx[3];
+        payload[3] = rx[4];
+        
         
         message.set_proc_id(proc_id);
         message.set_host_config(ValidHostInterfaces::SPI);
-        
-
-        
-        
-        
+        message.set_payload(payload);
+          
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
