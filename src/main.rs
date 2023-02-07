@@ -190,9 +190,6 @@ mod app {
 
          //*****
         // Initialization of the PIO0 and SMI state machine
-        
-        // 
-
         let _mdio_pin = pins.gpio2.into_mode::<hal::gpio::FunctionPio0>();
         let _mdc_pin = pins.gpio3.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
@@ -296,46 +293,21 @@ mod app {
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
     fn spi0_irq(cx: spi0_irq::Context) {
+        // Slave TX buffer
         let mut tx_buf = [1_u16, 2, 3, 4, 5, 6, 7, 8, 9];
-        let mut _rx_buf = [0_u16; 9];
-        let rx = cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
-        // Received bytes, Now build our HostRequest
+        // Write/Read words back to slave. Received words will replace contents in tx_buf
+        cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
+        // Received words, Now build our HostRequest
         let mut message = HostRequest::new();
-        // Interface first 3 bits of Packet 1
-        let interface = ((rx[0] >> 13) & 0b111) as u16;
-        match ValidInterfaces::try_from(interface) {
-            Ok(interface) => {
-                message.set_interface(interface);
+        match message.build_from_16bit_spi(&tx_buf) {
+            Ok(_some) => { // Host request built OK
+                // Send out our HostRequest
+                // send_out::spawn(message);
             }
-            _ => {
-                // return write_serial(serial, "Invalid Interface\n\r", false)
-            }
-        }
-        // Operation next 3 bits of Packet 1
-        let operation = ((rx[0] >> 10) & 0b111) as u16;
-        match ValidOps::try_from(operation) {
-            Ok(op) => {
-                message.set_operation(op);
-            }
-            _ => {
-                // return write_serial(serial, "Invalid Operation\n\r", false)
+            Err(err) => { // Drop the request and log
+                // write_serial(serial, err, false);
             }
         }
-        // Match on bits 
-        let size = ((rx[0] >> 8) & 0b11) as u8;
-        let checksum = (rx[0] & 0xFF) as u8;
-        let mut payload = [0u32; 4];
-        let mut index: usize = 0;
-        while index < size as usize {
-            payload[index] = ((rx[index + 1] as u32) << 16) | (rx[index + 2] as u32);
-            index += 1;
-        }
-
-        message.set_size(size);
-        message.set_host_config(ValidHostInterfaces::SPI);
-        message.set_payload(payload);
-        message.set_checksum(checksum);
-          
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data

@@ -181,6 +181,44 @@ pub mod Host {
             self.interface = interface;
         }
 
+        pub fn build_from_16bit_spi(&mut self, buf: &[u16; 9]) -> Result<(), &'static str> {
+            // Interface first 3 bits of Packet 1
+            let interface = ((buf[0] >> 13) & 0b111) as u16;
+            match ValidInterfaces::try_from(interface) {
+                Ok(interface) => {
+                    self.set_interface(interface);
+                }
+                _ => {
+                    return Err("Invalid Interface");
+                }
+            }
+            // Operation next 3 bits of Packet 1
+            let operation = ((buf[0] >> 10) & 0b111) as u16;
+            match ValidOps::try_from(operation) {
+                Ok(op) => {
+                    self.set_operation(op);
+                }
+                _ => {
+                    return Err("Invalid Operation");
+                }
+            }
+            // Match on bits 
+            let size = ((buf[0] >> 8) & 0b11) as u8;
+            let checksum = (buf[0] & 0xFF) as u8;
+            let mut payload = [0u32; 4];
+            let mut index: usize = 0;
+            while index < size as usize {
+                payload[index] = ((buf[index + 1] as u32) << 16) | (buf[index + 2] as u32);
+                index += 1;
+            }
+
+            self.set_size(size);
+            self.set_host_config(ValidHostInterfaces::SPI);
+            self.set_payload(payload);
+            self.set_checksum(checksum);
+            Ok(())
+        }
+
         // This will validate all the interface rules for our HostRequest
         pub fn init_clean(mut self) -> Result<HostRequest<Clean>, &'static str> {
             // if let valid_packet = checksum(self.checksum) ...
