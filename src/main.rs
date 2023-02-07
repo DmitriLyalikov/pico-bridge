@@ -7,15 +7,8 @@
 //! Author: Dmitri Lyalikov
 //! Version: 0.0.1
 //! 
-//! TODO: Load, Configure, Start PIO state machines (SMI,JTAG)
 //! TODO: PIO receive/write task
-//! TODO: push init, print_menu, match_usb_serial_buf, and write_serial into a module
-//! TODO: Menu task spawn
-//! TODO: SPI/UART command abstraction and data types 
-//! 
-//! 
 //! TODO: Assert IRQ on SMI reads
-//! TODO: create shared string, make match_serial_buf take a string argument and match on those strings
 //! TODO: Clear SPI/UART interrupts
 
 use defmt_rtt as _;
@@ -24,10 +17,6 @@ use panic_halt as _;
 mod fmt;
 mod serial;
 mod protocol;
-
-/// Clock divider for the PIO SM
-const PIO_CLK_DIV_INT: u16 = 1;
-const PIO_CLK_DIV_FRAQ: u8 = 255;
 
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP] )]
 mod app {
@@ -52,13 +41,13 @@ mod app {
 
     use fugit::RateExtU32;
 
-    use crate::protocol::Host::ValidOps;
-    use crate::protocol::ValidHostInterfaces;
-    use crate::serial::{Counter, match_usb_serial_buf, write_serial, print_menu};
-    use crate::protocol::{Send, Host::{HostRequest, Clean, ValidInterfaces,}, Slave::{NotReady, SlaveResponse}};
+    use crate::serial::{Counter, match_usb_serial_buf, write_serial};
+    use crate::protocol::{Send, ValidHostInterfaces,
+        Host::{HostRequest, Clean, ValidOps, ValidInterfaces,}, 
+        Slave::{NotReady, SlaveResponse}};
+
     use core::str;
     use core::convert::TryFrom;
-
 
     /// Clock divider for the PIO SM
     const PIO_CLK_DIV_INT: u16 = 1;
@@ -268,8 +257,6 @@ mod app {
                 smi_tx,       // SMI TX FIFO
                 smi_rx,       // SMI RX FIFO
 
-                // message: spi_message,
-
                 serial_buf,
                 counter,
             },
@@ -287,8 +274,6 @@ mod app {
     // Task that binds to the SPI0 IRQ and handles requests. This will execute from RAM
     // This takes a mutable reference to the SPI bus writes immediately from tx_buffer while reading 
     // into the rx_buffer
-
-    // 
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
