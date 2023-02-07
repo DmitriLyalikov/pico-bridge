@@ -290,6 +290,8 @@ mod app {
     // Task that binds to the SPI0 IRQ and handles requests. This will execute from RAM
     // This takes a mutable reference to the SPI bus writes immediately from tx_buffer while reading 
     // into the rx_buffer
+
+    // 
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev])]
@@ -310,7 +312,7 @@ mod app {
             }
         }
         // Operation next 3 bits of Packet 1
-        let operation = ((rx[0] >> 11) & 0b111) as u16;
+        let operation = ((rx[0] >> 10) & 0b111) as u16;
         match ValidOps::try_from(operation) {
             Ok(op) => {
                 message.set_operation(op);
@@ -319,15 +321,20 @@ mod app {
                 // return write_serial(serial, "Invalid Operation\n\r", false)
             }
         }
-        let size = (((rx[0] >> 7) & 0b11_1111) | ((rx[0] >> 6) & 0b1_0000)) as u8 * 2;
+        // Match on bits 
+        let size = ((rx[0] >> 8) & 0b11) as u8;
+        let checksum = (rx[0] & 0xFF) as u8;
         let mut payload = [0u32; 4];
-        if size != 0 {
-            payload[i] = (rx[i] as u32) << 16 | rx[i+1] as u32;
+        let mut index: usize = 0;
+        while index < size as usize {
+            payload[index] = ((rx[index + 1] as u32) << 16) | (rx[index + 2] as u32);
+            index += 1;
         }
 
         message.set_size(size);
         message.set_host_config(ValidHostInterfaces::SPI);
         message.set_payload(payload);
+        message.set_checksum(checksum);
           
     }
 
