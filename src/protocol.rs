@@ -68,8 +68,8 @@ pub mod Host {
                 0 => Ok(ValidOps::None),
                 1 => Ok(ValidOps::Read),
                 2 => Ok(ValidOps::Write),
-                3 => Ok(ValidOps::SetClk),
-                4 =>  Ok(ValidOps::GetClk),
+                3 => Ok(ValidOps::Set),
+                4 =>  Ok(ValidOps::Get),
                 // ... add more variants here
                 _ => Err(()),
             }

@@ -22,6 +22,7 @@ mod protocol;
 mod app {
 
     use embedded_hal::blocking::spi::Transfer;
+    use embedded_hal::digital::v2::OutputPin;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -76,7 +77,7 @@ mod app {
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
 
-        freepin: Pin<Gpio12, hal::gpio::Output<hal::gpio::PushPull>>,
+        freepin: Pin<Gpio28, hal::gpio::Output<hal::gpio::PushPull>>,
         
         // Used in USB_IRQ to count characters.
         counter: Counter,
@@ -123,7 +124,7 @@ mod app {
             &mut resets,
         );
 
-        let freepin = pins.gpio12.into_push_pull_output();
+        let freepin = pins.gpio28.into_push_pull_output();
         // These are implicitly used by the spi driver if they are in the correct mode
         let _spi_sclk = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
@@ -300,15 +301,16 @@ mod app {
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
-    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter, serial_buf])]
+    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter, serial_buf, freepin])]
     fn usb_rx(cx: usb_rx::Context) {
         let usb_dev = cx.shared.usb_dev;
         let serial = cx.shared.serial;
         let counter = cx.shared.counter;
         let serial_buf = cx.shared.serial_buf;
+        let freepin = cx.shared.freepin;
 
-        (usb_dev, serial, counter, serial_buf).lock(
-            |usb_dev_a, serial_a, counter_a, serial_buf| {
+        (usb_dev, serial, counter, serial_buf, freepin).lock(
+            |usb_dev_a, serial_a, counter_a, serial_buf, freepin| {
                 // Check for new data
                 if  usb_dev_a.poll(&mut [serial_a]) {
                     let mut buf = [0u8; 64];
@@ -326,6 +328,7 @@ mod app {
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
                                 b'\r' => { 
+                                    freepin.set_high().unwrap();
                                     let first_zero = serial_buf.iter().position(|&x| x == 0);
                                     match first_zero {
                                         Some(Index) => { serial_buf[Index] = b' '; }
@@ -340,6 +343,7 @@ mod app {
                                             let clean = hr.init_clean(); // Validate it
                                             match clean {
                                                 Ok(hr) => {
+                                                    freepin.set_low().unwrap();
                                                     send_out::spawn(hr);  // Send our clean host request to its destination
                                                 }
                                                 Err(err) =>  {
