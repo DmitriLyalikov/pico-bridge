@@ -283,14 +283,12 @@ mod app {
         // Write/Read words back to slave. Received words will replace contents in tx_buf
         cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
         // Received words, Now build our HostRequest
-        let mut message = HostRequest::new();
-        match message.build_from_16bit_spi(&tx_buf) {
-            Ok(_some) => { // Host request built OK
-                // Send out our HostRequest
-                // send_out::spawn(message);
+        match HostRequest::new().build_from_16bit_spi(&tx_buf) {
+            Ok(hr) => {
+                send_out::spawn(hr);
             }
-            Err(err) => { // Drop the request and log
-                // write_serial(serial, err, false);
+            Err(err) => {
+                // write_serial(serial_a, err, false)
             }
         }
     }

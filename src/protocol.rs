@@ -30,6 +30,7 @@
 
 pub mod Host {
     use core::fmt::Write;
+    use super::combine_u16_to_u32;
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
     use super::Send;
@@ -181,7 +182,7 @@ pub mod Host {
             self.interface = interface;
         }
 
-        pub fn build_from_16bit_spi(&mut self, buf: &[u16; 9]) -> Result<(), &'static str> {
+        pub fn build_from_16bit_spi(mut self, buf: &[u16; 9]) -> Result<HostRequest<Clean>, &'static str> {
             // Interface first 3 bits of Packet 1
             let interface = ((buf[0] >> 13) & 0b111) as u16;
             match ValidInterfaces::try_from(interface) {
@@ -202,21 +203,17 @@ pub mod Host {
                     return Err("Invalid Operation");
                 }
             }
-            // Match on bits 
-            let size = ((buf[0] >> 8) & 0b11) as u8;
+    
+            // Default 1
+            let size = ((buf[0] >> 8) & 0b11) as u8 + 1;
             let checksum = (buf[0] & 0xFF) as u8;
-            let mut payload = [0u32; 4];
-            let mut index: usize = 0;
-            while index < size as usize {
-                payload[index] = ((buf[index + 1] as u32) << 16) | (buf[index + 2] as u32);
-                index += 1;
-            }
+            let mut payload = combine_u16_to_u32(&buf[1..]);
 
             self.set_size(size);
             self.set_host_config(ValidHostInterfaces::SPI);
             self.set_payload(payload);
             self.set_checksum(checksum);
-            Ok(())
+            return self.init_clean()
         }
 
         // This will validate all the interface rules for our HostRequest
@@ -366,6 +363,18 @@ pub mod Slave {
         Ready,
         Sync,
     }
+}
+
+// Helper function that converts a list of u16 words into a payload of 4 32 bit words
+fn combine_u16_to_u32(values: &[u16]) -> [u32; 4] {
+    let mut result = [0u32; 4];
+
+    for (i, chunk) in values.chunks(2).enumerate() {
+        let combined = ((chunk[1] as u32) << 16) | chunk[0] as u32;
+        result[i] = combined;
+    }
+
+    result
 }
 
 /// Sums all the bytes of a data structure
