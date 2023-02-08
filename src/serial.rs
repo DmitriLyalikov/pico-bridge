@@ -87,16 +87,17 @@ pub fn match_usb_serial_buf( buf: &[u8; 64],
 pub fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
     let mut _buf = [0u8; 273];
     // Create the Menu.
-    let menu_str = "***************** \n\r
-*  pico-bridge USB Serial Interface \n\r
-*  Send system or device interface commands \n\r
+    let menu_str = "*****************\n\r
+*  pico-bridge USB Serial Interface\n\r
+*  Send system or device interface commands\n\r
 *  Menu:\n\r
-*  M / m - Print menu \n\r
-*    - smi r phyAddr RegAddr \n\r
-*    - smi w phyAddr RegAddr Data \n\r
-*    - smi reset \n\r
-*    - smi setclk frequency \n\r
-***************** \n\r
+*  M / m - Print menu\n\r
+*    - smi r phyAddr RegAddr\n\r
+*    - smi w phyAddr RegAddr Data\n\r
+*    - smi reset\n\r
+*    - smi setclk frequency\n\r
+*    - gpio set level\n\r 
+*****************\n\r
 Enter option: ";
 
     write_serial(serial, menu_str, true);
