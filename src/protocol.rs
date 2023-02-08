@@ -56,8 +56,8 @@ pub mod Host {
         None,
         Read,
         Write, 
-        SetClk,
-        GetClk,
+        Set,
+        Get,
     }
 
     impl TryFrom<u16> for ValidOps {

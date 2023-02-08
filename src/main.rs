@@ -75,6 +75,8 @@ mod app {
 
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
+
+        freepin: Pin<Gpio12, hal::gpio::Output<hal::gpio::PushPull>>,
         
         // Used in USB_IRQ to count characters.
         counter: Counter,
@@ -121,6 +123,7 @@ mod app {
             &mut resets,
         );
 
+        let freepin = pins.gpio12.into_push_pull_output();
         // These are implicitly used by the spi driver if they are in the correct mode
         let _spi_sclk = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
@@ -258,6 +261,9 @@ mod app {
                 smi_rx,       // SMI RX FIFO
 
                 serial_buf,
+
+                freepin, 
+
                 counter,
             },
             Local {

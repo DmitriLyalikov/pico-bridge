@@ -140,6 +140,15 @@ pub fn message_parse_build<'input>(input: &'input str,
         Some("smi" | "SMI") => {
             HR.set_interface(ValidInterfaces::SMI);
         }
+        Some("cfg" | "CFG") => {
+            HR.set_interface(ValidInterfaces::Config);
+        }
+        Some("jtag" | "JTAG") => {
+            HR.set_interface(ValidInterfaces::JTAG);
+        }
+        Some("spi" | "SPI") => {
+            HR.set_interface(ValidInterfaces::SPI);
+        }
         _ => {
             return Err("Invalid Interface\n\r")
         }
@@ -151,6 +160,9 @@ pub fn message_parse_build<'input>(input: &'input str,
         }
         Some("w" | "W") => {
             HR.set_operation(ValidOps::Write);
+        }
+        Some("gpio" | "GPIO") => {
+            HR.set_operation(ValidOps::Set);
         }
         _ => {
             return Err("Invalid Operation\n\r");
