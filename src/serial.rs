@@ -143,6 +143,9 @@ pub fn message_parse_build<'input>(input: &'input str,
         Some("cfg" | "CFG") => {
             HR.set_interface(ValidInterfaces::Config);
         }
+        Some("gpio" | "GPIO") => {
+            HR.set_interface(ValidInterfaces::GPIO);
+        }
         Some("jtag" | "JTAG") => {
             HR.set_interface(ValidInterfaces::JTAG);
         }
@@ -161,7 +164,7 @@ pub fn message_parse_build<'input>(input: &'input str,
         Some("w" | "W") => {
             HR.set_operation(ValidOps::Write);
         }
-        Some("gpio" | "GPIO") => {
+        Some("set" | "SET") => {
             HR.set_operation(ValidOps::Set);
         }
         _ => {

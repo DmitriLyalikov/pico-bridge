@@ -83,6 +83,7 @@ pub mod Host {
         I2C,
         SPI,
         Config,
+        GPIO,
     }
 
     impl TryFrom<u16> for ValidInterfaces {
@@ -96,6 +97,7 @@ pub mod Host {
                 3 => Ok(ValidInterfaces::I2C),
                 4 =>  Ok(ValidInterfaces::SPI),
                 5 => Ok(ValidInterfaces::Config),
+                5 => Ok(ValidInterfaces::GPIO),
                 // ... add more variants here
                 _ => Err(()),
             }
@@ -239,6 +241,11 @@ pub mod Host {
                     }
                 }
                 ValidInterfaces::Config => {
+                }
+
+                ValidInterfaces::GPIO => {
+                    // So far, only support output High and Low
+                    if self.size != 1 { return Err("Invalid Arguments") }
                 }
 
                 ValidInterfaces::None => {

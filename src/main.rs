@@ -23,6 +23,7 @@ mod app {
 
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::OutputPin;
+    use embedded_hal::digital::v2::PinState;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -77,6 +78,7 @@ mod app {
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
 
+        // pin for interrupt testing, additional functions, etc..
         freepin: Pin<Gpio28, hal::gpio::Output<hal::gpio::PushPull>>,
         
         // Used in USB_IRQ to count characters.
@@ -124,7 +126,7 @@ mod app {
             &mut resets,
         );
 
-        let freepin = pins.gpio28.into_push_pull_output();
+        let mut freepin = pins.gpio28.into_push_pull_output();
         // These are implicitly used by the spi driver if they are in the correct mode
         let _spi_sclk = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
@@ -387,7 +389,7 @@ mod app {
     // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
-    #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx])]
+    #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, freepin])]
     fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
         match hr.interface {
             ValidInterfaces::SMI => {
@@ -396,6 +398,13 @@ mod app {
                     //smi_tx.write(self.payload[i]);
                     i += 1;
                 }
+            }
+            ValidInterfaces::GPIO => {
+                let mut freepin = cx.shared.freepin;
+                (freepin).lock(|freepin| { 
+                    if hr.payload[0] != 0 {freepin.set_high().unwrap();}
+                    else {freepin.set_low().unwrap();}
+                })
             }
             _ => {}
         }
