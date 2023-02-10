@@ -416,6 +416,7 @@ mod app {
             }
             _ => {}
         }
+        // Exchange our Host Request for slave response that needs to be ready
         let slave_response = hr.send_out();
         match slave_response {
             Ok(val) => {
@@ -466,7 +467,9 @@ mod app {
                         }
                     }
                     // Clear all PIO0 IRQ flags
-                    pio0.clear_irq(0xF)
+                    pio0.clear_irq(0xF);
+                    // Exchange our UnReady Slave Response for a Ready one
+                    let slave_response = slave_response.init_ready();
                 }
             )
         }
@@ -474,6 +477,15 @@ mod app {
             // print that we had no slave response ready
         }
     }
+
+    // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
+    // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
+    // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
+    #[task(priority = 3, shared = [serial])]
+    fn respond_to_host(cx: respond_to_host::Context, mut hr: SlaveResponse<crate::protocol::Slave::Ready>) {
+        
+    }
+
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [])]
     fn idle(_cx: idle::Context) -> ! {
