@@ -499,7 +499,9 @@ mod app {
                     let split_u32_to_u16 = |word: u32| -> (u16, u16) {
                         ((word >> 16) as u16, word as u16)
                     };
-                    let (tx_buf[1],  tx_buf[2] ) = split_u32_to_u16(sr.payload);
+                    // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
+                    (tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
+                    
                 }
             )
         }
