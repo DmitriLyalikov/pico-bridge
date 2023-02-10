@@ -68,6 +68,7 @@ mod app {
         serial: SerialPort<'static, hal::usb::UsbBus>,
         usb_dev: usb_device::device::UsbDevice<'static, hal::usb::UsbBus>,
 
+        pio0: hal::pio::PIO<pac::PIO0>,
         // SMI PIO StateMachine Instance
         smi_master: hal::pio::StateMachine<(pac::PIO0, SM0), hal::pio::Running>,
         // SMI PIO TX FIFO
@@ -227,8 +228,8 @@ mod app {
         ".wrap",
         ); 
             
-        let (mut pio, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
-        let installed = pio.install(&program.program).unwrap();
+        let (mut pio0, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
+        let installed = pio0.install(&program.program).unwrap();
         let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
             .out_pins(2, 1)
             .side_set_pin_base(3)
@@ -259,13 +260,14 @@ mod app {
                 serial,
                 usb_dev,
 
+                pio0,
                 smi_master,   // SMI PIO State Machine 
                 smi_tx,       // SMI TX FIFO
                 smi_rx,       // SMI RX FIFO
 
                 serial_buf,
 
-                freepin, 
+                freepin,
 
                 counter,
             },
@@ -303,6 +305,8 @@ mod app {
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
+    #[inline(never)]
+    #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter, serial_buf, freepin])]
     fn usb_rx(cx: usb_rx::Context) {
         let usb_dev = cx.shared.usb_dev;
@@ -392,6 +396,8 @@ mod app {
     #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, freepin])]
     fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
         match hr.interface {
+            // For each additional supported interface, add another match arm that sends to the interface
+            // Take handle of its TX FIFO and send payload word by word according to the size
             ValidInterfaces::SMI => {
                 let mut i = 0;
                 while i < hr.size {
@@ -424,6 +430,8 @@ mod app {
     // Reads rx fifo into buffer and pushed to queue, spawn software task to return value
     #[task(binds = PIO0_IRQ_0, priority = 3, shared = [smi_master, smi_rx])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
+        // All statemachines implement IRQ flags, of which the first 0-3 LSB 
+        // 
         let smi = cx.shared.smi_master;
         let rx = cx.shared.smi_rx;
 

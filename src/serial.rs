@@ -120,6 +120,8 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 // into HostRequest fields. 
 // NOTE: Preliminary behavior is to drop message and log to serial an invalid message
 // if fields are missing or invalid
+#[inline(never)]
+#[link_section = ".data.bar"] // Execute from IRAM
 pub fn message_parse_build<'input>(input: &'input str,
     serial: &mut SerialPort<'static, hal::usb::UsbBus>) 
     -> Result<HostRequest<Host::Unclean>, &'static str>{
