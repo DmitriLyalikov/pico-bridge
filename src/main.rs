@@ -491,6 +491,8 @@ mod app {
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
     #[task(priority = 3, shared = [serial, spi_tx_buf])]
     fn respond_to_host(cx: respond_to_host::Context, mut sr: SlaveResponse<crate::protocol::Slave::Ready>) {
+        // If Host Response was SPI, we need to update the slave TX Buffer
+        // This slave response will go out when the Master requests it again.
         if sr.host_config == ValidHostInterfaces::SPI {
             let mut tx_buf = cx.shared.spi_tx_buf;
             tx_buf.lock(
