@@ -273,6 +273,12 @@ Power consumption
 
 * **Transaction Latency Test Architecture**
 <img width="707" alt="image" src="https://user-images.githubusercontent.com/68623356/216362037-a6015805-e16b-463c-aaf2-1500c493aa4e.png">
+
+### Host Interface Latency
+#### USB-Serial
+So far, HostRequest processing latency has been measured to be on average 88 microseconds. 
+This was done by asserting a free on board GPIO pin upon receiving the last character and deasserting once the HostRequest has been validated and sent to the send_out task. 
+
   
 * **Signal Integrity**
 Capture Signal Integrity characteristics across different frequencies, all DUT facing interfaces
