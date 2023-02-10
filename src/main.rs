@@ -417,7 +417,8 @@ mod app {
         let slave_response = hr.send_out();
         match slave_response {
             Ok(val) => {
-                // enqueue
+                // enqueue our new slave response
+                cx.local.producer.enqueue(val).unwrap();
             }
             Err(err) => {
                 // write_serial(, buf, block);
@@ -428,18 +429,48 @@ mod app {
     // Hardware task associated with PIO0_IRQ_0
     // Takes control of shared state machine and rx fifo of PIO_0 SM_0 
     // Reads rx fifo into buffer and pushed to queue, spawn software task to return value
-    #[task(binds = PIO0_IRQ_0, priority = 3, shared = [smi_master, smi_rx])]
+    #[task(binds = PIO0_IRQ_0, priority = 3, shared = [pio0, smi_master, smi_rx], local = [consumer])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
         // All statemachines implement IRQ flags, of which the first 0-3 LSB 
         // 
-        let smi = cx.shared.smi_master;
-        let rx = cx.shared.smi_rx;
+        
+        if let Some(mut slave_response) = cx.local.consumer.dequeue() {
 
-        (smi, rx).lock(
-            |smi_a, rx_a| {
-                rx_a.read();
-            }
-        )
+            let pio0 = cx.shared.pio0;
+            let smi = cx.shared.smi_master;
+            let rx = cx.shared.smi_rx;
+
+            (pio0, smi, rx).lock(
+                |pio0, smi_a, rx_a| {
+                    // First, read the index of the state machine IRQ flag 
+                    // This determines which state machine flagged an IRQ
+                    let index = pio0.get_irq_raw();
+                    match index {
+                        // This is the SMI state machine
+                        1 => {
+                            match rx_a.read() {
+                                Some(word) => {
+                                    // We got a word from the SMI RX FIFO
+                                    slave_response.set_payload(word);
+                                }
+                                _ => {
+                                    // No word received
+                                }
+                            }
+                        }
+                        // For now just implement SMI
+                        _ => {
+
+                        }
+                    }
+                    // Clear all PIO0 IRQ flags
+                    pio0.clear_irq(0xF)
+                }
+            )
+        }
+        else { // If this happens, our IRQ fired from State machine but no slave response object
+            // print that we had no slave response ready
+        }
     }
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [])]

@@ -20,7 +20,7 @@
         }
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug)]
     pub enum ValidHostInterfaces {
         Serial = 0b00,
         UART = 0b01,
@@ -270,6 +270,7 @@ pub mod Slave {
     pub struct Ready {
         __private: (),
     }
+    #[derive(Debug)]
     // The response is not ready to send back to host
     pub struct NotReady {
         __private: (),
@@ -278,12 +279,13 @@ pub mod Slave {
     impl State for NotReady {}
     impl State for Ready {}
 
+    #[derive(Debug)]
     pub struct SlaveResponse<S: State> {
         state: PhantomData<S>,
         proc_id: u8,
         host_config: ValidHostInterfaces,
         size: u8,             // A value between 0 and 4
-        payload: [u32; 4],     // Max payload size over SPI is 4 bytes 
+        payload: u32,     // Max payload size over SPI is 4 bytes 
     }
 
     impl <S: State> SlaveResponse<S>{
@@ -328,7 +330,7 @@ pub mod Slave {
                 proc_id: 0_u8,
                 host_config: ValidHostInterfaces::None,
                 size: 0_u8,       
-                payload: [0_u32; 4],
+                payload: 0,
             }
         }
 
@@ -344,7 +346,7 @@ pub mod Slave {
             self.size = size;
         }
 
-        pub fn set_payload(&mut self, payload: [u32; 4]) {
+        pub fn set_payload(&mut self, payload: u32) {
             self.payload = payload;
         }
     
