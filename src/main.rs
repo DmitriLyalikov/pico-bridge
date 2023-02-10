@@ -220,6 +220,7 @@ mod app {
         "in pins 1 side 1 [4]",
         "jmp x-- read_data side 0 [4]",
         "push side 0",
+        "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
         "jmp start side 0",
     "write_data:",
         "nop side 0 [1]",
