@@ -226,6 +226,7 @@ mod app {
         "nop side 0 [1]",
         "out pins, 1 side 1 [4]",
         "jmp x-- write_data side 0 [3]",
+        "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
         ".wrap",
         ); 
             
