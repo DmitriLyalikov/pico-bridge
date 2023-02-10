@@ -19,8 +19,8 @@
             HostErr::None
         }
     }
-
-    #[derive(Copy, Clone, Debug)]
+    
+    #[derive(Copy, Clone, PartialEq, Debug)]
     pub enum ValidHostInterfaces {
         Serial = 0b00,
         UART = 0b01,
@@ -282,10 +282,10 @@ pub mod Slave {
     #[derive(Debug)]
     pub struct SlaveResponse<S: State> {
         state: PhantomData<S>,
-        proc_id: u8,
-        host_config: ValidHostInterfaces,
-        size: u8,             // A value between 0 and 4
-        payload: u32,     // Max payload size over SPI is 4 bytes 
+        pub proc_id: u8,
+        pub host_config: ValidHostInterfaces,
+        pub size: u8,             // A value between 0 and 4
+        pub payload: u32,     // Max payload size over SPI is 4 bytes 
     }
 
     impl <S: State> SlaveResponse<S>{

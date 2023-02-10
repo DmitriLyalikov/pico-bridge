@@ -79,7 +79,7 @@ mod app {
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
 
-        spi_tx_buf: [u32; 9],
+        spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
         freepin: Pin<Gpio28, hal::gpio::Output<hal::gpio::PushPull>>,
@@ -250,7 +250,7 @@ mod app {
         let smi_master = sm.start();
         
         let mut serial_buf = [0_u8; 64];
-        let mut spi_tx_buf = [0_u32; 9];
+        let mut spi_tx_buf = [0_u16; 9];
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
@@ -489,9 +489,20 @@ mod app {
     // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
-    #[task(priority = 3, shared = [serial])]
-    fn respond_to_host(cx: respond_to_host::Context, mut hr: SlaveResponse<crate::protocol::Slave::Ready>) {
-
+    #[task(priority = 3, shared = [serial, spi_tx_buf])]
+    fn respond_to_host(cx: respond_to_host::Context, mut sr: SlaveResponse<crate::protocol::Slave::Ready>) {
+        if sr.host_config == ValidHostInterfaces::SPI {
+            let mut tx_buf = cx.shared.spi_tx_buf;
+            tx_buf.lock(
+                |tx_buf|  {
+                    tx_buf[0] = sr.proc_id as u16;
+                    let split_u32_to_u16 = |word: u32| -> (u16, u16) {
+                        ((word >> 16) as u16, word as u16)
+                    };
+                    let (tx_buf[1],  tx_buf[2] ) = split_u32_to_u16(sr.payload);
+                }
+            )
+        }
     }
 
     // Task with least priority that only runs when nothing else is running.
