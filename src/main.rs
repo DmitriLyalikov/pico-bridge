@@ -422,10 +422,15 @@ mod app {
             // Take handle of its TX FIFO and send payload word by word according to the size
             ValidInterfaces::SMI => {
                 let mut i = 0;
-                while i < hr.size {
-                    //smi_tx.write(self.payload[i]);
-                    i += 1;
-                }
+                let mut smi_tx = cx.shared.smi_tx;
+                smi_tx.lock(
+                    |smi_tx| {
+                        while i < hr.size { // Send words from payload 1 by 1 to SMI TX FIFO
+                            smi_tx.write(hr.payload[i as usize]);
+                            i += 1;
+                        }
+                    }
+                )
             }
             ValidInterfaces::GPIO => {
                 let mut freepin = cx.shared.freepin;
@@ -437,14 +442,19 @@ mod app {
             _ => {}
         }
         // Exchange our Host Request for slave response that needs to be ready
-        let slave_response = hr.send_out();
+        let slave_response = hr.exchange_for_slave_response();
         match slave_response {
             Ok(val) => {
                 // enqueue our new slave response
                 cx.local.producer.enqueue(val).unwrap();
             }
-            Err(_err) => {
-                // write_serial(, buf, block);
+            Err(err) => {
+                let mut serial = cx.shared.serial;
+                serial.lock(
+                    |serial| {
+                        write_serial(serial, err, false);
+                    }      
+                )
             }
         }
     }
@@ -452,7 +462,7 @@ mod app {
     // Hardware task associated with PIO0_IRQ_0
     // Takes control of shared state machine and rx fifo of PIO_0 SM_0 
     // Reads rx fifo into buffer and pushed to queue, spawn software task to return value
-    #[task(binds = PIO0_IRQ_0, priority = 3, shared = [pio0, smi_master, smi_rx], local = [consumer])]
+    #[task(binds = PIO0_IRQ_0, priority = 3, shared = [serial, pio0, smi_master, smi_rx], local = [consumer])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
         // All statemachines implement IRQ flags, of which the first 0-3 LSB 
         // 
@@ -462,10 +472,11 @@ mod app {
             let pio0 = cx.shared.pio0;
             let smi = cx.shared.smi_master;
             let rx = cx.shared.smi_rx;
+            let serial = cx.shared.serial;
 
             // Eventually lock all implemented state machines and rx fifos
-            (pio0, smi, rx).lock(
-                |pio0, smi_a, rx_a| {
+            (pio0, smi, rx, serial).lock(
+                |pio0, smi_a, rx_a, serial,| {
                     // First, read the index of the state machine IRQ flag 
                     // This determines which state machine flagged an IRQ
                     let index = pio0.get_irq_raw();
@@ -489,17 +500,16 @@ mod app {
                     }
                     // Clear all PIO0 IRQ flags
                     pio0.clear_irq(0xF);
-                    // Exchange our UnReady Slave Response for a Ready one
+                    // Exchange our NotReady Slave Response for a Ready one
                     // TODO Add match case for this
                     match slave_response.init_ready() {
                         Ok(sr) => {
                             respond_to_host::spawn(sr);
                         }
                         Err(err) => {
-                            // Print error to serial and drop transaction
+                                    write_serial(serial, err, false);
                         }
                     }
-
                 }
             )
         }
@@ -512,12 +522,12 @@ mod app {
     // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
-    #[task(priority = 3, shared = [serial, spi_tx_buf])]
+    #[task(priority = 3, shared = [serial], local =[spi_tx_producer])]
     fn respond_to_host(cx: respond_to_host::Context, sr: SlaveResponse<crate::protocol::Slave::Ready>) {
         // If Host Response was SPI, we need to update the slave TX Buffer
         // This slave response will go out when the Master requests it again.
         if sr.host_config == ValidHostInterfaces::SPI {
-            let tx_buf = cx.shared.spi_tx_buf;
+            let mut tx_buf = [0_u16; 9];
             // Push the relevant slave response fields to the spi tx buffer
             tx_buf[0] = sr.proc_id as u16;
             let split_u32_to_u16 = |word: u32| -> (u16, u16) {
@@ -525,6 +535,8 @@ mod app {
                 };
             // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
             (tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
+
+            cx.local.spi_tx_producer.enqueue(tx_buf);
         }
     }
 

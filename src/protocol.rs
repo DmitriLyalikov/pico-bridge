@@ -5,7 +5,7 @@
     use self::Slave::{SlaveResponse, NotReady, SlaveErr, HostErr};
 
     pub trait Send{
-        fn send_out(&mut self) -> Result<SlaveResponse<NotReady>, &'static str> {
+        fn exchange_for_slave_response(&mut self) -> Result<SlaveResponse<NotReady>, &'static str> {
             // Match on the device facing interface and send payload to its TX FIFO
             // Return the constructed SlaveResponse
             Ok (SlaveResponse::new())
@@ -132,7 +132,7 @@ pub mod Host {
     }
     
     impl Send for HostRequest<Clean> {
-        fn send_out(&mut self) -> Result<super::Slave::SlaveResponse<super::Slave::NotReady>, &'static str> {
+        fn exchange_for_slave_response(&mut self) -> Result<super::Slave::SlaveResponse<super::Slave::NotReady>, &'static str> {
             let mut SR = SlaveResponse::new();
             SR.set_host_config( self.host_config);
             SR.set_proc_id(self.proc_id);
