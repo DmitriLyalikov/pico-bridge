@@ -184,7 +184,7 @@ pub mod Host {
             self.interface = interface;
         }
 
-        pub fn build_from_16bit_spi(mut self, buf: &[u16; 9]) -> Result<HostRequest<Clean>, &'static str> {
+        pub fn build_from_16bit_spi(mut self, buf: &[u16]) -> Result<HostRequest<Clean>, &'static str> {
             // Interface first 3 bits of Packet 1
             let interface = ((buf[0] >> 13) & 0b111) as u16;
             match ValidInterfaces::try_from(interface) {

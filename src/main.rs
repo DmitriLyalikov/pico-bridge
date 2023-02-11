@@ -79,6 +79,7 @@ mod app {
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
 
+        #[lock_free]
         spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
@@ -297,22 +298,18 @@ mod app {
     fn spi0_irq(cx: spi0_irq::Context) {
         // Slave TX buffer
         let mut tx_buf = cx.shared.spi_tx_buf;
-        (tx_buf).lock(
-            |tx_buf| {
-                // Write/Read words back to slave. Received words will replace contents in tx_buf
-                cx.local.spi_dev.transfer(tx_buf).unwrap();
+        // Write/Read words back to slave. Received words will replace contents in tx_buf
+        cx.local.spi_dev.transfer(tx_buf).unwrap();
                 // Received words, Now build our HostRequest
                 match HostRequest::new().build_from_16bit_spi(tx_buf) {
                     Ok(hr) => {
                         send_out::spawn(hr);
                     }
                     Err(err) => {
-                    // write_serial(serial_a, err, false)
+                        // write_serial(serial_a, err, false)
                     }
                 }
-            }
-        ) 
-    }
+        }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
     #[inline(never)]
@@ -451,6 +448,7 @@ mod app {
             let smi = cx.shared.smi_master;
             let rx = cx.shared.smi_rx;
 
+            // Eventually lock all implemented state machines and rx fifos
             (pio0, smi, rx).lock(
                 |pio0, smi_a, rx_a| {
                     // First, read the index of the state machine IRQ flag 
@@ -481,7 +479,8 @@ mod app {
                 }
             )
         }
-        else { // If this happens, our IRQ fired from State machine but no slave response object
+        else { 
+            // If this happens, our IRQ fired from State machine but no slave response object
             // print that we had no slave response ready
         }
     }
@@ -495,17 +494,13 @@ mod app {
         // This slave response will go out when the Master requests it again.
         if sr.host_config == ValidHostInterfaces::SPI {
             let mut tx_buf = cx.shared.spi_tx_buf;
-            tx_buf.lock(
-                |tx_buf|  {
-                    tx_buf[0] = sr.proc_id as u16;
-                    let split_u32_to_u16 = |word: u32| -> (u16, u16) {
-                        ((word >> 16) as u16, word as u16)
-                    };
-                    // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
-                    (tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
-                    
-                }
-            )
+                // Push the relevant slave response fields to the spi tx buffer
+            tx_buf[0] = sr.proc_id as u16;
+            let split_u32_to_u16 = |word: u32| -> (u16, u16) {
+                    ((word >> 16) as u16, word as u16)
+                };
+            // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
+            (tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
         }
     }
 
