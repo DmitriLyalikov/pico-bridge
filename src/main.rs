@@ -23,7 +23,6 @@ mod app {
 
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::OutputPin;
-    use heapless::spsc::Producer;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -256,7 +255,7 @@ mod app {
         let serial_buf = [0_u8; 64];
         let spi_tx_buf = [0_u16; 9];
 
-        let (spi_tx_producer, spi_tx_consumer) = c.local.spi_q.split();
+        let (mut spi_tx_producer, mut spi_tx_consumer) = c.local.spi_q.split();
         // initialize our first buffer
         spi_tx_producer.enqueue([0_u16; 9]).unwrap();
         // q has 'static lifetime so after the split and return of 'init'
@@ -317,7 +316,7 @@ mod app {
                 send_out::spawn(hr);
             }
             Err(err) => { // Print the error to serial port if Host Request is invalid
-                let serial = cx.shared.serial;
+                let mut serial = cx.shared.serial;
                 (serial).lock(
                     |serial| {
                         write_serial(serial, err, false);
