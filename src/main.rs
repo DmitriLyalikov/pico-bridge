@@ -23,6 +23,7 @@ mod app {
 
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::OutputPin;
+    use heapless::spsc::Producer;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -92,11 +93,15 @@ mod app {
         spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
 
+        spi_tx_producer: Producer<'static, [u16; 9], 3>,
+        spi_tx_consumer: Consumer<'static, [u16; 9], 3>,
+
         producer: Producer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to writng to queue
         consumer: Consumer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to read to queue 
     }
 
     #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None,
+        spi_q: Queue<[u16; 9], 3> = Queue::new(),
         q: Queue<SlaveResponse<NotReady>, 3> = Queue::new()])]
     fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
@@ -250,6 +255,10 @@ mod app {
         
         let serial_buf = [0_u8; 64];
         let spi_tx_buf = [0_u16; 9];
+
+        let (spi_tx_producer, spi_tx_consumer) = c.local.spi_q.split();
+        // initialize our first buffer
+        spi_tx_producer.enqueue([0_u16; 9]).unwrap();
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
@@ -280,6 +289,9 @@ mod app {
                 spi_dev: spi_dev,
                 uart_dev: uart, 
 
+                spi_tx_producer,
+                spi_tx_consumer,
+
                 producer,
                 consumer,
             },
@@ -292,22 +304,28 @@ mod app {
     // into the rx_buffer
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev], shared = [spi_tx_buf])]
+    #[task(binds=SPI0_IRQ, priority=4, local=[spi_dev, spi_tx_consumer], shared = [serial])]
     fn spi0_irq(cx: spi0_irq::Context) {
-        // Slave TX buffer
-        let tx_buf = cx.shared.spi_tx_buf;
+        let mut tx_buf = [0_u16; 9];
         // Write/Read words back to slave. Received words will replace contents in tx_buf
-        cx.local.spi_dev.transfer(tx_buf).unwrap();
-                // Received words, Now build our HostRequest
-                match HostRequest::new().build_from_16bit_spi(tx_buf) {
-                    Ok(hr) => {
-                        send_out::spawn(hr);
+        if let Some(mut tx_buf) = cx.local.spi_tx_consumer.dequeue(){}
+        
+        cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
+        // Received words, Now build our HostRequest
+        match HostRequest::new().build_from_16bit_spi(&tx_buf) {
+            Ok(hr) => { // Host Request is clean and ready to be sent out
+                send_out::spawn(hr);
+            }
+            Err(err) => { // Print the error to serial port if Host Request is invalid
+                let serial = cx.shared.serial;
+                (serial).lock(
+                    |serial| {
+                        write_serial(serial, err, false);
                     }
-                    Err(err) => {
-                        // write_serial(serial_a, err, false)
-                    }
-                }
+                )
+            }
         }
+    }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
     #[inline(never)]

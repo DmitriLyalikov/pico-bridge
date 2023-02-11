@@ -215,6 +215,7 @@ pub mod Host {
             self.set_host_config(ValidHostInterfaces::SPI);
             self.set_payload(payload);
             self.set_checksum(checksum);
+
             return self.init_clean()
         }
 
