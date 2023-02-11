@@ -23,7 +23,6 @@ mod app {
 
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::OutputPin;
-    use embedded_hal::digital::v2::PinState;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -45,11 +44,10 @@ mod app {
 
     use crate::serial::{Counter, match_usb_serial_buf, write_serial};
     use crate::protocol::{Send, ValidHostInterfaces,
-        Host::{HostRequest, Clean, ValidOps, ValidInterfaces,}, 
+        Host::{HostRequest, Clean, ValidInterfaces,}, 
         Slave::{NotReady, SlaveResponse}};
 
     use core::str;
-    use core::convert::TryFrom;
 
     /// Clock divider for the PIO SM
     const PIO_CLK_DIV_INT: u16 = 1;
@@ -130,7 +128,7 @@ mod app {
             &mut resets,
         );
 
-        let mut freepin = pins.gpio28.into_push_pull_output();
+        let freepin = pins.gpio28.into_push_pull_output();
         // These are implicitly used by the spi driver if they are in the correct mode
         let _spi_sclk = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
@@ -250,8 +248,8 @@ mod app {
         sm.set_pindirs([(1, PinDir::Output)]);
         let smi_master = sm.start();
         
-        let mut serial_buf = [0_u8; 64];
-        let mut spi_tx_buf = [0_u16; 9];
+        let serial_buf = [0_u8; 64];
+        let spi_tx_buf = [0_u16; 9];
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
@@ -297,7 +295,7 @@ mod app {
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev], shared = [spi_tx_buf])]
     fn spi0_irq(cx: spi0_irq::Context) {
         // Slave TX buffer
-        let mut tx_buf = cx.shared.spi_tx_buf;
+        let tx_buf = cx.shared.spi_tx_buf;
         // Write/Read words back to slave. Received words will replace contents in tx_buf
         cx.local.spi_dev.transfer(tx_buf).unwrap();
                 // Received words, Now build our HostRequest
@@ -428,7 +426,7 @@ mod app {
                 // enqueue our new slave response
                 cx.local.producer.enqueue(val).unwrap();
             }
-            Err(err) => {
+            Err(_err) => {
                 // write_serial(, buf, block);
             }
         }
@@ -475,7 +473,16 @@ mod app {
                     // Clear all PIO0 IRQ flags
                     pio0.clear_irq(0xF);
                     // Exchange our UnReady Slave Response for a Ready one
-                    let slave_response = slave_response.init_ready();
+                    // TODO Add match case for this
+                    match slave_response.init_ready() {
+                        Ok(sr) => {
+                            respond_to_host::spawn(sr);
+                        }
+                        Err(err) => {
+                            // Print error to serial and drop transaction
+                        }
+                    }
+
                 }
             )
         }
@@ -489,12 +496,12 @@ mod app {
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
     #[task(priority = 3, shared = [serial, spi_tx_buf])]
-    fn respond_to_host(cx: respond_to_host::Context, mut sr: SlaveResponse<crate::protocol::Slave::Ready>) {
+    fn respond_to_host(cx: respond_to_host::Context, sr: SlaveResponse<crate::protocol::Slave::Ready>) {
         // If Host Response was SPI, we need to update the slave TX Buffer
         // This slave response will go out when the Master requests it again.
         if sr.host_config == ValidHostInterfaces::SPI {
-            let mut tx_buf = cx.shared.spi_tx_buf;
-                // Push the relevant slave response fields to the spi tx buffer
+            let tx_buf = cx.shared.spi_tx_buf;
+            // Push the relevant slave response fields to the spi tx buffer
             tx_buf[0] = sr.proc_id as u16;
             let split_u32_to_u16 = |word: u32| -> (u16, u16) {
                     ((word >> 16) as u16, word as u16)
