@@ -30,7 +30,7 @@
 
 pub mod Host {
     use core::fmt::Write;
-    use super::combine_u16_to_u32;
+    use super::{combine_u16_to_u32, combine_u8_to_u32};
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
     use super::Send;
@@ -219,6 +219,41 @@ pub mod Host {
             return self.init_clean()
         }
 
+        pub fn build_from_8bit_spi(mut self, buf: &[u8]) -> Result<HostRequest<Clean>, &'static str> {
+            // Interface first 3 bits of Packet 1
+            let interface = ((buf[0] >> 5) & 0b111) as u16;
+            match ValidInterfaces::try_from(interface) {
+                Ok(interface) => {
+                    self.set_interface(interface);
+                }
+                _ => {
+                    return Err("Invalid Interface");
+                }
+            }
+            // Operation next 3 bits of Packet 1
+            let operation = ((buf[0] >> 2) & 0b111) as u16;
+            match ValidOps::try_from(operation) {
+                Ok(op) => {
+                    self.set_operation(op);
+                }
+                _ => {
+                    return Err("Invalid Operation");
+                }
+            }
+    
+            // Default 1
+            let size = ((buf[0]) & 0b11) + 1;
+            let checksum = (buf[1]);
+            let mut payload = combine_u8_to_u32(&buf[2..]);
+
+            self.set_size(size);
+            self.set_host_config(ValidHostInterfaces::SPI);
+            self.set_payload(payload);
+            self.set_checksum(checksum);
+
+            return self.init_clean()
+        }
+
         // This will validate all the interface rules for our HostRequest
         pub fn init_clean(mut self) -> Result<HostRequest<Clean>, &'static str> {
             // if let valid_packet = checksum(self.checksum) ...
@@ -381,6 +416,17 @@ fn combine_u16_to_u32(values: &[u16]) -> [u32; 4] {
 
     for (i, chunk) in values.chunks(2).enumerate() {
         let combined = ((chunk[1] as u32) << 16) | chunk[0] as u32;
+        result[i] = combined;
+    }
+
+    result
+}
+
+fn combine_u8_to_u32(values: &[u8]) -> [u32; 4] {
+    let mut result = [0u32; 4];
+
+    for (i, chunk) in values.chunks(4).enumerate() {
+        let combined = ((chunk[3] as u32) << 24) | ((chunk[2] as u32) << 16) | ((chunk[1] as u32) << 8) | (chunk[0] as u32);
         result[i] = combined;
     }
 

@@ -89,18 +89,18 @@ mod app {
 
     #[local]
     struct Local {
-        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 16>,
+        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
 
-        spi_tx_producer: Producer<'static, [u16; 9], 3>,
-        spi_tx_consumer: Consumer<'static, [u16; 9], 3>,
+        spi_tx_producer: Producer<'static, [u8; 18], 3>,
+        spi_tx_consumer: Consumer<'static, [u8; 18], 3>,
 
         producer: Producer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to writng to queue
         consumer: Consumer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to read to queue 
     }
 
     #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None,
-        spi_q: Queue<[u16; 9], 3> = Queue::new(),
+        spi_q: Queue<[u8; 18], 3> = Queue::new(),
         q: Queue<SlaveResponse<NotReady>, 3> = Queue::new()])]
     fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
@@ -138,7 +138,7 @@ mod app {
         let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_miso = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_cs = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
-        let spi = hal::Spi::<_, _, 16>::new(c.device.SPI0);
+        let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
         let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
           
@@ -257,7 +257,7 @@ mod app {
 
         let (mut spi_tx_producer, mut spi_tx_consumer) = c.local.spi_q.split();
         // initialize our first buffer
-        spi_tx_producer.enqueue([0_u16; 9]).unwrap();
+        spi_tx_producer.enqueue([0_u8; 18]).unwrap();
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
@@ -305,13 +305,13 @@ mod app {
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=4, local=[spi_dev, spi_tx_consumer], shared = [serial])]
     fn spi0_irq(cx: spi0_irq::Context) {
-        let mut tx_buf = [0_u16; 9];
+        let mut tx_buf = [0_u8; 18];
         // Write/Read words back to slave. Received words will replace contents in tx_buf
         if let Some(mut tx_buf) = cx.local.spi_tx_consumer.dequeue(){}
         
         cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
         // Received words, Now build our HostRequest
-        match HostRequest::new().build_from_16bit_spi(&tx_buf) {
+        match HostRequest::new().build_from_8bit_spi(&tx_buf) {
             Ok(hr) => { // Host Request is clean and ready to be sent out
                 send_out::spawn(hr);
             }
@@ -527,14 +527,21 @@ mod app {
         // If Host Response was SPI, we need to update the slave TX Buffer
         // This slave response will go out when the Master requests it again.
         if sr.host_config == ValidHostInterfaces::SPI {
-            let mut tx_buf = [0_u16; 9];
+            let mut tx_buf = [0_u8; 18];
             // Push the relevant slave response fields to the spi tx buffer
-            tx_buf[0] = sr.proc_id as u16;
-            let split_u32_to_u16 = |word: u32| -> (u16, u16) {
-                    ((word >> 16) as u16, word as u16)
-                };
+            tx_buf[0] = sr.proc_id as u8;
+
+            //let split_u32_to_u16 = |word: u32| -> (u16, u16) {
+            //        ((word >> 16) as u16, word as u16)
+            //    };
             // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
-            (tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
+            //(tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
+
+            let split_u32_to_u8 = |word: u32| -> (u8, u8, u8, u8) {
+                (((word >> 24) & 0xff) as u8, ((word >> 16) & 0xff) as u8, ((word >> 8) & 0xff) as u8, (word & 0xff) as u8)
+            };
+
+            (tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4]) = split_u32_to_u8(sr.payload);
 
             cx.local.spi_tx_producer.enqueue(tx_buf);
         }
