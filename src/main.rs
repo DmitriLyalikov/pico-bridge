@@ -50,7 +50,7 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const PIO_CLK_DIV_INT: u16 = 1;
+    const SMI_DEFAULT_CLKDIV: u16 = 53; // (133000000 / 2500000)
     const PIO_CLK_DIV_FRAQ: u8 = 255;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
@@ -241,7 +241,7 @@ mod app {
             .out_pins(2, 1)
             .side_set_pin_base(3)
             .out_sticky(true)
-            .clock_divisor_fixed_point(PIO_CLK_DIV_INT, PIO_CLK_DIV_FRAQ) // freq = 1 / (int + (frac/256))
+            .clock_divisor_fixed_point(SMI_DEFAULT_CLKDIV, PIO_CLK_DIV_FRAQ) // freq = 1 / (int + (frac/256))
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
