@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+
 //! Pico-Bridge Application for Hardware Interface Bridging
 //! Opens USB Device Serial Port, SPI slave, and Serial UART Host-to-Device transport layers to handle reqeusts 
 //! RTIC assigns hardware tasks for these peripheral interrupts in the RTIC domain to handle asynchronous host requests
@@ -21,6 +22,7 @@ mod protocol;
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP] )]
 mod app {
 
+    use cortex_m::peripheral::NVIC;
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::OutputPin;
     use rp_pico::hal as hal;
@@ -132,16 +134,18 @@ mod app {
             &mut resets,
         );
 
+        // We need to enable the SPI0_IRQ 
+        unsafe {NVIC::unmask(pac::Interrupt::SPI0_IRQ);}
+
         let freepin = pins.gpio28.into_push_pull_output();
         // These are implicitly used by the spi driver if they are in the correct mode
-        let _spi_sclk = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_mosi = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_miso = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_cs = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
+        let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
+        let _spi_mosi = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
+        let _spi_miso = pins.gpio16.into_mode::<hal::gpio::FunctionSpi>();
+        let _spi_cs = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
         let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
-        let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
-          
+        let mut spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
         let uart_pins = (
             // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
             pins.gpio0.into_mode::<hal::gpio::FunctionUart>(),
@@ -303,9 +307,9 @@ mod app {
     // into the rx_buffer
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds=SPI0_IRQ, priority=4, local=[spi_dev, spi_tx_consumer], shared = [serial])]
+    #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev, spi_tx_consumer], shared = [serial])]
     fn spi0_irq(cx: spi0_irq::Context) {
-        let mut tx_buf = [0_u8; 18];
+        let mut tx_buf = [5u8; 18];
         // Write/Read words back to slave. Received words will replace contents in tx_buf
         if let Some(mut tx_buf) = cx.local.spi_tx_consumer.dequeue(){}
         
@@ -316,12 +320,6 @@ mod app {
                 send_out::spawn(hr);
             }
             Err(err) => { // Print the error to serial port if Host Request is invalid
-                let mut serial = cx.shared.serial;
-                (serial).lock(
-                    |serial| {
-                        write_serial(serial, err, false);
-                    }
-                )
             }
         }
     }
