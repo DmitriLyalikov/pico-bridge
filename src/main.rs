@@ -14,34 +14,32 @@
 
 use defmt_rtt as _;
 use panic_halt as _;
-
 mod fmt;
 mod serial;
 mod protocol;
 
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP] )]
 mod app {
-
-    use cortex_m::peripheral::NVIC;
-    use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::OutputPin;
+    use cortex_m::prelude::*;
     use rp_pico::hal as hal;
     use rp_pico::pac;
+    //use pac::{NVIC, Interrupt, interrupt};
     use heapless::spsc::{Consumer, Producer, Queue};
 
+    //use embedded_hal::
     use hal::{clocks::Clock,
-        spi,
         uart::{UartConfig, DataBits, StopBits},
         gpio::{pin::bank0::*, Pin, FunctionUart},
         pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,}
         };
-
+    use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
     use usb_device::control::Request;
     // USB Device support 
     use usb_device::{class_prelude::*, prelude::*};
+
     // USB Communications Class Device support
     use usbd_serial::SerialPort;
-
     use fugit::RateExtU32;
 
     use crate::serial::{Counter, match_usb_serial_buf, write_serial};
@@ -93,7 +91,7 @@ mod app {
     struct Local {
         spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
-
+        //cs_pin: Pin<Gpio22, crate::app::hal::gpio::Input<crate::app::hal::gpio::Floating>>,
         spi_tx_producer: Producer<'static, [u8; 18], 3>,
         spi_tx_consumer: Consumer<'static, [u8; 18], 3>,
 
@@ -134,18 +132,17 @@ mod app {
             &mut resets,
         );
 
-        // We need to enable the SPI0_IRQ 
-        unsafe {NVIC::unmask(pac::Interrupt::SPI0_IRQ);}
-
         let freepin = pins.gpio28.into_push_pull_output();
         // These are implicitly used by the spi driver if they are in the correct mode
         let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_miso = pins.gpio16.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_cs = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
+        let  spi_cs = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
+
         let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
-        let mut spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
+        let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
+
         let uart_pins = (
             // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
             pins.gpio0.into_mode::<hal::gpio::FunctionUart>(),
@@ -180,7 +177,7 @@ mod app {
                 )));
 
         // Set up the USB Communication Class Device Driver
-        let serial = SerialPort::new(usb_bus);
+        let mut serial = SerialPort::new(usb_bus);
 
         // Create a USB device with a VID and PID
         let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
@@ -189,7 +186,6 @@ mod app {
                 .serial_number("TEST")
                 .device_class(2) // from https://www.usb.org/defined-class-codes
                 .build();
-
         // Reset the counter
         let counter = Counter::new();
 
@@ -266,6 +262,7 @@ mod app {
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
 
+        //spi_dev.write(&[1_u8, 2_u8, 3_u8, 4_u8, 5_u8, 6_u8, 7_u8, 8_u8]).unwrap();
         // Set core to sleep
         c.core.SCB.set_sleepdeep();
 
@@ -291,6 +288,7 @@ mod app {
             Local {
                 spi_dev: spi_dev,
                 uart_dev: uart, 
+                //cs_pin,
 
                 spi_tx_producer,
                 spi_tx_consumer,
@@ -308,20 +306,53 @@ mod app {
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev, spi_tx_consumer], shared = [serial])]
-    fn spi0_irq(cx: spi0_irq::Context) {
-        let mut tx_buf = [5u8; 18];
-        // Write/Read words back to slave. Received words will replace contents in tx_buf
-        if let Some(mut tx_buf) = cx.local.spi_tx_consumer.dequeue(){}
+    fn spi0(cx: spi0::Context) {     
+        let mut serial = cx.shared.serial;
+        let spi_dev = cx.local.spi_dev;
+        serial.lock(|serial|
+        {
+            write_serial(serial, "Assert IRQ", false);
+            let mut rx_buf = [0_u8; 1];
+            //match spi_dev.write(&mut rx_buf) {
+            //    Ok(ok) => {
+            //        write_serial(serial, "ok", false);
+            //    }
+            //    Err(err) => {
+             //       write_serial(serial, "fail", false);
+            //    }
+            //}
+
+        }); 
+
+        unsafe { pac::NVIC::unpend(pac::Interrupt::SPI0_IRQ) }
         
-        cx.local.spi_dev.transfer(&mut tx_buf).unwrap();
-        // Received words, Now build our HostRequest
-        match HostRequest::new().build_from_8bit_spi(&tx_buf) {
-            Ok(hr) => { // Host Request is clean and ready to be sent out
-                send_out::spawn(hr);
+
+        //if spi_dev.ssm() {
+        //    serial.lock(|serial|
+        //        {
+        //            write_serial(serial, "RX IRQ", false);
+        //        }); 
+        //}
+            /*let mut tx_buf = [5u8; 18];
+            // Write/Read words back to slave. Received words will replace contents in tx_buf
+            if let Some(mut tx_buf) = cx.local.spi_tx_consumer.dequeue(){}
+            match cx.local.spi_dev.transfer(&mut tx_buf) {
+            Ok(tx_buf) => {
+
+                      // Received words, Now build our HostRequest
+                match HostRequest::new().build_from_8bit_spi(&tx_buf) {
+                    Ok(hr) => { // Host Request is clean and ready to be sent out
+                        send_out::spawn(hr);
+                    }
+                    Err(err) => { // Print the error to serial port if Host Request is invalid
+                    }
+                }
             }
-            Err(err) => { // Print the error to serial port if Host Request is invalid
-            }
-        }
+
+            _ => {
+                }
+            } */
+            // cx.local.cs_pin.clear_interrupt(hal::gpio::Interrupt::EdgeLow);
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
