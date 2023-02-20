@@ -133,6 +133,16 @@ mod app {
         );
 
         let freepin = pins.gpio28.into_push_pull_output();
+
+        // SPI Pre-Init Reset State
+        // DEBUG Breakpoint Here: 
+        // Test points:
+        //      NVIC_ISER_0xc000e180 Expect: bit 17 = 1. This means SPI0_IRQ is unmasked by "default"
+        //      NVIC_ICPR_0xc000e280 Expect: bit 17 = 0. This meas SPI0_IRQ is not pending
+        //      SPI0_SCR0_0x4003c000 Expect: 0x00, SPI is not enabled yet
+        //      SPI0_SPSR_0x4003c00c Expect: 0x3, SPI TX FIFO is empty
+        //      SPI0_SMIS_0x4003c014 Expect: 0x0, all Interrupt sources are masked
+        // 
         // These are implicitly used by the spi driver if they are in the correct mode
         let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
@@ -141,7 +151,21 @@ mod app {
 
         let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
-        let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
+        let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_3);
+        // SPI Enabled State
+        // DEBUG Breakpoint Here: 
+        // Test points:
+        //      NVIC_ISER_0xc000e180 Expect: bit 17 = 1. This means SPI0_IRQ is unmasked by "default"
+        //      NVIC_ICPR_0xc000e280 Expect: bit 17 = 0. This meas SPI0_IRQ is not pending
+        //      SPI0_SCR0_0x4003c000 Expect: 0xc7, SPI is enabled, MODE_3
+        //      SPI0_SCR1_0x4003c004 Expect: 0x6, slave mode, SOD = 0, enabled = 1, LBM = 0
+        //      SPI0_SPSR_0x4003c00c Expect: 0x3, SPI TX FIFO is empty
+        //      SPI0_SMIS_0x4003c014 Expect: 0xc, RX/TX IM are unmasked
+    
+        // Prime the tx FIFO with a SPI0_write 
+        // Insert Breakpoint
+        // TX FIFO Prime state
+        //      SPI0_SPSR_0x4003c00c Expect: 0x0, SPI TX FIFO is not empty
 
         let uart_pins = (
             // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
@@ -306,25 +330,24 @@ mod app {
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
     #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev, spi_tx_consumer], shared = [serial])]
-    fn spi0(cx: spi0::Context) {     
+    fn spi0(cx: spi0::Context) {  
+        // SPI0_IRQ State
+        // Debug Breakpoint
+        // Test points:
+        //      NVIC_ISER_0xc000e180 Expect: bit 17 = 1. This means SPI0_IRQ is unmasked
+        //      NVIC_ICPR_0xc000e280 Expect: bit 17 = 1. This meas SPI0_IRQ is pending
+        //      SPI0_SCR0_0x4003c000 Expect: 0xc7, SPI is enabled, MODE_3
+        //      SPI0_SCR1_0x4003c004 Expect: 0x6, slave mode, SOD = 0, enabled = 1, LBM = 0
+        //      SPI0_SPSR_0x4003c00c Expect: 0x3, SPI TX FIFO is empty
+        //      SPI0_SMIS_0x4003c014 Expect: 0xc, RX/TX IM are unmasked
+        //      SPI0_SRIS_0x4003c018: This will tell what interrupt source asserted SPI0_IRQ
         let mut serial = cx.shared.serial;
         let spi_dev = cx.local.spi_dev;
         serial.lock(|serial|
         {
             write_serial(serial, "Assert IRQ", false);
             let mut rx_buf = [0_u8; 1];
-            //match spi_dev.write(&mut rx_buf) {
-            //    Ok(ok) => {
-            //        write_serial(serial, "ok", false);
-            //    }
-            //    Err(err) => {
-             //       write_serial(serial, "fail", false);
-            //    }
-            //}
-
         }); 
-
-        unsafe { pac::NVIC::unpend(pac::Interrupt::SPI0_IRQ) }
         
 
         //if spi_dev.ssm() {
