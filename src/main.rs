@@ -163,6 +163,8 @@ mod app {
         //      SPI0_SMIS_0x4003c014 Expect: 0xc, RX/TX IM are unmasked
     
         // Prime the tx FIFO with a SPI0_write 
+        // Does Spi transfer/read/write block until its contents are used or when the write completes?
+        // TEST: match on spi_dev..transfer and write and step into each arm
         // Insert Breakpoint
         // TX FIFO Prime state
         //      SPI0_SPSR_0x4003c00c Expect: 0x0, SPI TX FIFO is not empty
@@ -338,9 +340,10 @@ mod app {
         //      NVIC_ICPR_0xc000e280 Expect: bit 17 = 1. This meas SPI0_IRQ is pending
         //      SPI0_SCR0_0x4003c000 Expect: 0xc7, SPI is enabled, MODE_3
         //      SPI0_SCR1_0x4003c004 Expect: 0x6, slave mode, SOD = 0, enabled = 1, LBM = 0
-        //      SPI0_SPSR_0x4003c00c Expect: 0x3, SPI TX FIFO is empty
+        //      SPI0_SPSR_0x4003c00c Expect: 0x3, SPI TX FIFO is empty, is RX FIFO empty?
         //      SPI0_SMIS_0x4003c014 Expect: 0xc, RX/TX IM are unmasked
         //      SPI0_SRIS_0x4003c018: This will tell what interrupt source asserted SPI0_IRQ
+
         let mut serial = cx.shared.serial;
         let spi_dev = cx.local.spi_dev;
         serial.lock(|serial|
