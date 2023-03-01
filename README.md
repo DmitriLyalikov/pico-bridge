@@ -93,7 +93,8 @@ When fired, the PIO_IRQx handler will check which state machine is ready by read
     2. [UART/SPI](#UART/SPI)
 6. [Interface Defaults](#Interface-Defaults)
 7. [Testing](#Testing)
-8. [Appendix](#appendix)
+8. [Debugging](#Debugging)
+9. [Appendix](#appendix)
 
 ## Requirements
 * Raspberry Pi Pico
@@ -300,7 +301,12 @@ Capture Signal Integrity characteristics across different frequencies, all DUT f
    
     * Force PIO Timeout
     * PIO TX FIFO Full
-   
+
+## Debugging
+This application and system was tested and debugged using OpenOCD (Open On-Chip Debugger) which is an open source software for programming and debugging ARM and MIPS based devices. It supports the use of the PicoProbe, which uses another Raspberry Pi Pico to act as a debugger with SWD. 
+
+
+
 
 ## Appendix
 #### Documentation
@@ -361,3 +367,4 @@ Capture Signal Integrity characteristics across different frequencies, all DUT f
 [25]: https://github.com/rp-rs/rp2040-project-template
 [26]: https://github.com/sandeepmistry/pico-rmii-ethernet
 [29]: https://prodigytechno.com/mdio-management-data-input-output/
+[30]: https://www.digikey.com/en/maker/projects/raspberry-pi-pico-and-rp2040-cc-part-2-debugging-with-vs-code/470abc7efb07432b82c95f6f67f184c0
