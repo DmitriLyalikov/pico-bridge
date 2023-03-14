@@ -400,7 +400,7 @@ mod app {
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
                                 b'\r' => { 
-                                    freepin.set_high().unwrap();
+                                    // freepin.set_high().unwrap();
                                     let first_zero = serial_buf.iter().position(|&x| x == 0);
                                     match first_zero {
                                         Some(Index) => { serial_buf[Index] = b' '; }
@@ -480,26 +480,27 @@ mod app {
                 (freepin).lock(|freepin| { 
                     if hr.payload[0] != 0 {freepin.set_high().unwrap();}
                     else {freepin.set_low().unwrap();}
+                    // We do not do slave response on set/config commands
                 })
             }
             _ => {}
         }
         // Exchange our Host Request for slave response that needs to be ready
-        let slave_response = hr.exchange_for_slave_response();
-        match slave_response {
-            Ok(val) => {
+        //let slave_response = hr.exchange_for_slave_response();
+        //match slave_response {
+        //    Ok(val) => {
                 // enqueue our new slave response
-                cx.local.producer.enqueue(val).unwrap();
-            }
-            Err(err) => {
-                let mut serial = cx.shared.serial;
-                serial.lock(
-                    |serial| {
-                        write_serial(serial, err, false);
-                    }      
-                )
-            }
-        }
+        //        cx.local.producer.enqueue(val).unwrap();
+        //    }
+        //    Err(err) => {
+                //let mut serial = cx.shared.serial;
+                //serial.lock(
+                //    |serial| {
+                //        write_serial(serial, err, false);
+                //    }      
+                //)
+        //    }
+        //}
     }
 
     // Hardware task associated with PIO0_IRQ_0
