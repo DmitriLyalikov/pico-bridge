@@ -81,7 +81,7 @@ mod app {
         spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
-        freepin: Pin<Gpio28, hal::gpio::Output<hal::gpio::PushPull>>,
+        freepin: Pin<Gpio25, hal::gpio::Output<hal::gpio::PushPull>>,
         
         // Used in USB_IRQ to count characters.
         counter: Counter,
@@ -132,7 +132,7 @@ mod app {
             &mut resets,
         );
 
-        let freepin = pins.gpio28.into_push_pull_output();
+        let freepin = pins.gpio25.into_push_pull_output();
 
         // SPI Pre-Init Reset State
         // DEBUG Breakpoint Here: 
