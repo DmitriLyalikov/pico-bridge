@@ -11,11 +11,6 @@ pub(crate) struct Wrapper<'a> {
     offset: usize,
 }
 
-impl<'a> Wrapper<'a> {
-    pub(crate) fn new(buf: &'a mut [u8]) -> Self {
-        Wrapper { buf, offset: 0}
-    }
-}
 
 impl<'a> fmt::Write for Wrapper<'a> {
     fn write_str(&mut self, s: &str) -> fmt::Result {

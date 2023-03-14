@@ -1,8 +1,6 @@
 // Check if this must implement send and sync
-    use core::{marker::PhantomData};
     use core::result::Result;
-    use core::{mem, slice};
-    use self::Slave::{SlaveResponse, NotReady, SlaveErr, HostErr};
+    use self::slave::{SlaveResponse, NotReady, HostErr};
 
     pub trait Send{
         fn exchange_for_slave_response(&mut self) -> Result<SlaveResponse<NotReady>, &'static str> {
@@ -28,8 +26,7 @@
         None = 0b11,
     }
 
-pub mod Host {
-    use core::fmt::Write;
+pub mod host {
     use super::{combine_u16_to_u32, combine_u8_to_u32};
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
@@ -97,7 +94,7 @@ pub mod Host {
                 3 => Ok(ValidInterfaces::I2C),
                 4 =>  Ok(ValidInterfaces::SPI),
                 5 => Ok(ValidInterfaces::Config),
-                5 => Ok(ValidInterfaces::GPIO),
+                6 => Ok(ValidInterfaces::GPIO),
                 // ... add more variants here
                 _ => Err(()),
             }
@@ -132,11 +129,11 @@ pub mod Host {
     }
     
     impl Send for HostRequest<Clean> {
-        fn exchange_for_slave_response(&mut self) -> Result<super::Slave::SlaveResponse<super::Slave::NotReady>, &'static str> {
-            let mut SR = SlaveResponse::new();
-            SR.set_host_config( self.host_config);
-            SR.set_proc_id(self.proc_id);
-            Ok(SR)
+        fn exchange_for_slave_response(&mut self) -> Result<super::slave::SlaveResponse<super::slave::NotReady>, &'static str> {
+            let mut sr = SlaveResponse::new();
+            sr.set_host_config( self.host_config);
+            sr.set_proc_id(self.proc_id);
+            Ok(sr)
         }
     }
     impl HostRequest<Unclean> {
@@ -209,7 +206,7 @@ pub mod Host {
             // Default 1
             let size = ((buf[0] >> 8) & 0b11) as u8 + 1;
             let checksum = (buf[0] & 0xFF) as u8;
-            let mut payload = combine_u16_to_u32(&buf[1..]);
+            let payload = combine_u16_to_u32(&buf[1..]);
 
             self.set_size(size);
             self.set_host_config(ValidHostInterfaces::SPI);
@@ -243,8 +240,8 @@ pub mod Host {
     
             // Default 1
             let size = ((buf[0]) & 0b11) + 1;
-            let checksum = (buf[1]);
-            let mut payload = combine_u8_to_u32(&buf[2..]);
+            let checksum = buf[1];
+            let payload = combine_u8_to_u32(&buf[2..]);
 
             self.set_size(size);
             self.set_host_config(ValidHostInterfaces::SPI);
@@ -296,7 +293,7 @@ pub mod Host {
     }
 }
 
-pub mod Slave {
+pub mod slave {
     use core::{marker::PhantomData};
     use super::{Respond, ValidHostInterfaces};
 
@@ -386,27 +383,17 @@ pub mod Slave {
             self.payload = payload;
         }
     
-        pub fn init_ready(mut self) -> Result<SlaveResponse<Ready>, &'static str> {
+        pub fn init_ready(self) -> Result<SlaveResponse<Ready>, &'static str> {
             // if let valid_packet = checksum(self.checksum) ...
             // This will validate all the interface rules for our HostRequest, 
             // Any other kind of packet sanitizing
             self.transition(Ready {__private: () })
         }
     }
-    pub enum SlaveErr {
-        Timeout,
-        None,
-    }
 
     pub enum HostErr {
         Timeout,
-        Overflow,
         None,
-    }
-    pub enum SlaveCode {
-        NotReady,
-        Ready,
-        Sync,
     }
 }
 
@@ -433,32 +420,5 @@ fn combine_u8_to_u32(values: &[u8]) -> [u32; 4] {
     result
 }
 
-/// Sums all the bytes of a data structure
-pub fn sum<T>(data: &T) -> u8 {
-    let ptr = data as *const _ as *const u8;
-    let len = mem::size_of::<T>();
 
-    let data = unsafe { slice::from_raw_parts(ptr, len) };
-
-    sum_slice(data)
-}
-
-/// Sums all the bytes in an array
-pub fn sum_slice(data: &[u8]) -> u8 {
-    data.iter().fold(0, |a, &b| a.wrapping_add(b))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn simple_sum() {
-        struct Simple(u32, u32);
-
-        let simple = Simple(0xAA_00_BB_00, 0xAA_00_00_00);
-
-        assert_eq!(sum(&simple), 15);
-    }
-}
 

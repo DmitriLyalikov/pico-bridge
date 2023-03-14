@@ -18,23 +18,20 @@ mod fmt;
 mod serial;
 mod protocol;
 
-#[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP] )]
+#[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP])]
 mod app {
     use embedded_hal::digital::v2::OutputPin;
-    use cortex_m::prelude::*;
     use rp_pico::hal as hal;
     use rp_pico::pac;
-    //use pac::{NVIC, Interrupt, interrupt};
     use heapless::spsc::{Consumer, Producer, Queue};
 
     //use embedded_hal::
     use hal::{clocks::Clock,
         uart::{UartConfig, DataBits, StopBits},
         gpio::{pin::bank0::*, Pin, FunctionUart},
-        pio::{PIOExt, ShiftDirection,PIOBuilder, Tx, SM0, PinDir,}
+        pio::{PIOExt, ShiftDirection,PIOBuilder, SM0, PinDir,}
         };
-    use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
-    use usb_device::control::Request;
+
     // USB Device support 
     use usb_device::{class_prelude::*, prelude::*};
 
@@ -42,10 +39,10 @@ mod app {
     use usbd_serial::SerialPort;
     use fugit::RateExtU32;
 
-    use crate::serial::{Counter, match_usb_serial_buf, write_serial};
+    use crate::serial::{match_usb_serial_buf, write_serial};
     use crate::protocol::{Send, ValidHostInterfaces,
-        Host::{HostRequest, Clean, ValidInterfaces,}, 
-        Slave::{NotReady, SlaveResponse}};
+        host::{HostRequest, Clean, ValidInterfaces,}, 
+        slave::{NotReady, SlaveResponse}};
 
     use core::str;
 
@@ -78,19 +75,16 @@ mod app {
         serial_buf: [u8; 64],
 
         #[lock_free]
-        spi_tx_buf: [u16; 9],
+        _spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
         freepin: Pin<Gpio25, hal::gpio::Output<hal::gpio::PushPull>>,
-        
-        // Used in USB_IRQ to count characters.
-        counter: Counter,
     }
 
     #[local]
     struct Local {
         spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
-        uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
+        _uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
         //cs_pin: Pin<Gpio22, crate::app::hal::gpio::Input<crate::app::hal::gpio::Floating>>,
         spi_tx_producer: Producer<'static, [u8; 18], 3>,
         spi_tx_consumer: Consumer<'static, [u8; 18], 3>,
@@ -147,7 +141,7 @@ mod app {
         let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_mosi = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
         let _spi_miso = pins.gpio16.into_mode::<hal::gpio::FunctionSpi>();
-        let  spi_cs = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
+        let _spi_cs = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
 
         let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
@@ -203,7 +197,7 @@ mod app {
                 )));
 
         // Set up the USB Communication Class Device Driver
-        let mut serial = SerialPort::new(usb_bus);
+        let serial = SerialPort::new(usb_bus);
 
         // Create a USB device with a VID and PID
         let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
@@ -212,8 +206,6 @@ mod app {
                 .serial_number("TEST")
                 .device_class(2) // from https://www.usb.org/defined-class-codes
                 .build();
-        // Reset the counter
-        let counter = Counter::new();
 
          //*****
         // Initialization of the PIO0 and SMI state machine
@@ -279,9 +271,9 @@ mod app {
         let smi_master = sm.start();
         
         let serial_buf = [0_u8; 64];
-        let spi_tx_buf = [0_u16; 9];
+        let _spi_tx_buf = [0_u16; 9];
 
-        let (mut spi_tx_producer, mut spi_tx_consumer) = c.local.spi_q.split();
+        let (mut spi_tx_producer, spi_tx_consumer) = c.local.spi_q.split();
         // initialize our first buffer
         spi_tx_producer.enqueue([0_u8; 18]).unwrap();
         // q has 'static lifetime so after the split and return of 'init'
@@ -305,15 +297,13 @@ mod app {
                 smi_rx,       // SMI RX FIFO
 
                 serial_buf,
-                spi_tx_buf,
+                _spi_tx_buf,
 
                 freepin,
-
-                counter,
             },
             Local {
                 spi_dev: spi_dev,
-                uart_dev: uart, 
+                _uart_dev: uart, 
                 //cs_pin,
 
                 spi_tx_producer,
@@ -345,11 +335,11 @@ mod app {
         //      SPI0_SRIS_0x4003c018: This will tell what interrupt source asserted SPI0_IRQ
 
         let mut serial = cx.shared.serial;
-        let spi_dev = cx.local.spi_dev;
+        let _spi_dev = cx.local.spi_dev;
         serial.lock(|serial|
         {
             write_serial(serial, "Assert IRQ", false);
-            let mut rx_buf = [0_u8; 1];
+            let _rx_buf = [0_u8; 1];
         }); 
         
 
@@ -384,16 +374,15 @@ mod app {
     // USB interrupt handler hardware task. Runs every time host requests new data
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, counter, serial_buf, freepin])]
+    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, serial_buf, freepin])]
     fn usb_rx(cx: usb_rx::Context) {
         let usb_dev = cx.shared.usb_dev;
         let serial = cx.shared.serial;
-        let counter = cx.shared.counter;
         let serial_buf = cx.shared.serial_buf;
         let freepin = cx.shared.freepin;
 
-        (usb_dev, serial, counter, serial_buf, freepin).lock(
-            |usb_dev_a, serial_a, counter_a, serial_buf, freepin| {
+        (usb_dev, serial, serial_buf, freepin).lock(
+            |usb_dev_a, serial_a, serial_buf, freepin| {
                 // Check for new data
                 if  usb_dev_a.poll(&mut [serial_a]) {
                     let mut buf = [0u8; 64];
@@ -427,7 +416,7 @@ mod app {
                                             match clean {
                                                 Ok(hr) => {
                                                     freepin.set_low().unwrap();
-                                                    send_out::spawn(hr);  // Send our clean host request to its destination
+                                                    send_out::spawn(hr); // Send our clean host request to its destination
                                                 }
                                                 Err(err) =>  {
                                                     write_serial(serial_a, err, false);
@@ -443,7 +432,6 @@ mod app {
                                     for elem in serial_buf.iter_mut() {
                                         *elem = 0;
                                     }
-                                    counter_a.reset(); 
                                 }
 
                                 _ => {
@@ -531,7 +519,7 @@ mod app {
 
             // Eventually lock all implemented state machines and rx fifos
             (pio0, smi, rx, serial).lock(
-                |pio0, smi_a, rx_a, serial,| {
+                |pio0, _smi_a, rx_a, serial,| {
                     // First, read the index of the state machine IRQ flag 
                     // This determines which state machine flagged an IRQ
                     let index = pio0.get_irq_raw();
@@ -578,7 +566,7 @@ mod app {
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
     #[task(priority = 3, shared = [serial], local =[spi_tx_producer])]
-    fn respond_to_host(cx: respond_to_host::Context, sr: SlaveResponse<crate::protocol::Slave::Ready>) {
+    fn respond_to_host(cx: respond_to_host::Context, sr: SlaveResponse<crate::protocol::slave::Ready>) {
         // If Host Response was SPI, we need to update the slave TX Buffer
         // This slave response will go out when the Master requests it again.
         if sr.host_config == ValidHostInterfaces::SPI {
@@ -598,7 +586,7 @@ mod app {
 
             (tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4]) = split_u32_to_u8(sr.payload);
 
-            cx.local.spi_tx_producer.enqueue(tx_buf);
+            cx.local.spi_tx_producer.enqueue(tx_buf).unwrap();
         }
     }
 

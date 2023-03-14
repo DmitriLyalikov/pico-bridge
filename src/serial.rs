@@ -1,43 +1,15 @@
-use crate::protocol::{ValidHostInterfaces,  Host::{self, HostRequest, ValidInterfaces, ValidOps}};
+use crate::protocol::{ValidHostInterfaces,  host::{self, HostRequest, ValidInterfaces, ValidOps}};
 
 use rp_pico::hal as hal;
 // USB Device support 
-use usb_device::{class_prelude::*, prelude::*};
+use usb_device::{class_prelude::*};
 // USB Communications Class Device support
 use usbd_serial::SerialPort;
 
-use core::{str, result, u32};
-use core::str::{SplitWhitespace};
+use core::{str, u32};
+use core::str::SplitWhitespace;
 
-pub struct Counter {
-    counter: u32,
-    enable: bool,
-}
 
-impl Counter {
-    pub fn new() -> Self {
-        Counter {
-            counter: 0_u32,
-            enable: true,
-        }
-    }
-
-    pub fn get(&self) -> u32 {
-        self.counter
-    }
-
-    pub fn reset(&mut self) {
-        self.counter = 0_u32;
-    }
-
-    pub fn increment(&mut self) {
-        self.counter += 1;
-    }
-
-    pub fn enable(&mut self, state: bool) {
-        self.enable = state;
-    }
-}
 // Helper function to ensure all data is written across the serial interface
 pub fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &str, block: bool) {
     let write_ptr = buf.as_bytes();
@@ -70,7 +42,7 @@ pub fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &st
 // Match the Serial Input commands to a hardware/software request
 pub fn match_usb_serial_buf( buf: &[u8; 64],
     serial: &mut SerialPort<'static, hal::usb::UsbBus> ) 
-    -> Result<HostRequest<Host::Unclean>, &'static str> {
+    -> Result<HostRequest<host::Unclean>, &'static str> {
     let buf = str::from_utf8(buf).unwrap();
     write_serial(serial, "\n\r", false);
 
@@ -80,7 +52,7 @@ pub fn match_usb_serial_buf( buf: &[u8; 64],
     }
     else {
         write_serial(serial, "\n\r", false);
-        message_parse_build(buf, serial)
+        message_parse_build(buf)
     }
 }
 
@@ -122,14 +94,13 @@ pub fn slice_contains(haystack: &str, needle: &str) -> bool {
 // if fields are missing or invalid
 #[inline(never)]
 #[link_section = ".data.bar"] // Execute from IRAM
-pub fn message_parse_build<'input>(input: &'input str,
-    serial: &mut SerialPort<'static, hal::usb::UsbBus>) 
-    -> Result<HostRequest<Host::Unclean>, &'static str>{
+pub fn message_parse_build<'input>(input: &'input str) 
+    -> Result<HostRequest<host::Unclean>, &'static str>{
     let mut payload = [0u32; 4];
 
     // Split up the given string
-    let mut HR = HostRequest::new();
-    HR.set_host_config(ValidHostInterfaces::Serial);
+    let mut hr = HostRequest::new();
+    hr.set_host_config(ValidHostInterfaces::Serial);
 
     let words = |input: &'input str| -> SplitWhitespace<'input>  {input.split_whitespace()};
     let mut command = words(input);
@@ -140,19 +111,19 @@ pub fn message_parse_build<'input>(input: &'input str,
     // Match on the first word
     match command.next() {
         Some("smi" | "SMI") => {
-            HR.set_interface(ValidInterfaces::SMI);
+            hr.set_interface(ValidInterfaces::SMI);
         }
         Some("cfg" | "CFG") => {
-            HR.set_interface(ValidInterfaces::Config);
+            hr.set_interface(ValidInterfaces::Config);
         }
         Some("gpio" | "GPIO") => {
-            HR.set_interface(ValidInterfaces::GPIO);
+            hr.set_interface(ValidInterfaces::GPIO);
         }
         Some("jtag" | "JTAG") => {
-            HR.set_interface(ValidInterfaces::JTAG);
+            hr.set_interface(ValidInterfaces::JTAG);
         }
         Some("spi" | "SPI") => {
-            HR.set_interface(ValidInterfaces::SPI);
+            hr.set_interface(ValidInterfaces::SPI);
         }
         _ => {
             return Err("Invalid Interface\n\r")
@@ -161,13 +132,13 @@ pub fn message_parse_build<'input>(input: &'input str,
     // Match on the second word. This should be an operation. If not log incorrect
     match command.next() {
         Some("r" | "R") => {
-            HR.set_operation(ValidOps::Read);
+            hr.set_operation(ValidOps::Read);
         }
         Some("w" | "W") => {
-            HR.set_operation(ValidOps::Write);
+            hr.set_operation(ValidOps::Write);
         }
         Some("set" | "SET") => {
-            HR.set_operation(ValidOps::Set);
+            hr.set_operation(ValidOps::Set);
         }
         _ => {
             return Err("Invalid Operation\n\r");
@@ -186,9 +157,9 @@ pub fn message_parse_build<'input>(input: &'input str,
         }
         size+=1;
     }
-    HR.set_size(size);
-    HR.set_payload(payload);
-    Ok(HR)
+    hr.set_size(size);
+    hr.set_payload(payload);
+    Ok(hr)
 }
 
 // Helper function to take &str in decimal or hex form
