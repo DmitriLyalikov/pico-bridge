@@ -47,7 +47,7 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const SMI_DEFAULT_CLKDIV: u16 = 53; // (133000000 / 2500000)
+    const SMI_DEFAULT_CLKDIV: u16 = 10; // (133000000 / 2500000)
     const PIO_CLK_DIV_FRAQ: u8 = 255;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
@@ -78,7 +78,7 @@ mod app {
         _spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
-        freepin: Pin<Gpio25, hal::gpio::Output<hal::gpio::PushPull>>,
+        freepin: Pin<Gpio28, hal::gpio::Output<hal::gpio::PushPull>>,
     }
 
     #[local]
@@ -126,8 +126,7 @@ mod app {
             &mut resets,
         );
 
-        let freepin = pins.gpio25.into_push_pull_output();
-
+        let freepin = pins.gpio28.into_push_pull_output();
         // SPI Pre-Init Reset State
         // DEBUG Breakpoint Here: 
         // Test points:
@@ -209,8 +208,8 @@ mod app {
 
          //*****
         // Initialization of the PIO0 and SMI state machine
-        let _mdio_pin = pins.gpio2.into_mode::<hal::gpio::FunctionPio0>();
-        let _mdc_pin = pins.gpio3.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdio_pin = pins.gpio5.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdc_pin = pins.gpio6.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
         "
         .side_set 1",
@@ -256,18 +255,19 @@ mod app {
         let (mut pio0, sm0, _, _, _,) = c.device.PIO0.split(&mut resets);
         let installed = pio0.install(&program.program).unwrap();
         let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
-            .out_pins(2, 1)
-            .side_set_pin_base(3)
+            .out_pins(5, 1)
+            .side_set_pin_base(6)
             .out_sticky(true)
             .clock_divisor_fixed_point(SMI_DEFAULT_CLKDIV, PIO_CLK_DIV_FRAQ) // freq = 1 / (int + (frac/256))
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
             .pull_threshold(0)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
-            .set_pins(2, 1)
-            .in_pin_base(2)
+            .set_pins(5, 1)
+            .in_pin_base(5)
             .build(sm0);
-        sm.set_pindirs([(1, PinDir::Output)]);
+        sm.set_pindirs([(5, PinDir::Output)]);
+        sm.set_pindirs([(6, PinDir::Output)]);
         let smi_master = sm.start();
         
         let serial_buf = [0_u8; 64];
@@ -400,7 +400,7 @@ mod app {
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
                                 b'\r' => { 
-                                    // freepin.set_high().unwrap();
+                                    freepin.set_high().unwrap();
                                     let first_zero = serial_buf.iter().position(|&x| x == 0);
                                     match first_zero {
                                         Some(Index) => { serial_buf[Index] = b' '; }
@@ -460,31 +460,30 @@ mod app {
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
     #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, freepin])]
     fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
+        let mut freepin = cx.shared.freepin;
+        let mut smi_tx = cx.shared.smi_tx;
+        (freepin, smi_tx).lock(|freepin, smi_tx| {
         match hr.interface {
             // For each additional supported interface, add another match arm that sends to the interface
             // Take handle of its TX FIFO and send payload word by word according to the size
             ValidInterfaces::SMI => {
                 let mut i = 0;
-                let mut smi_tx = cx.shared.smi_tx;
-                smi_tx.lock(
-                    |smi_tx| {
-                        while i < hr.size { // Send words from payload 1 by 1 to SMI TX FIFO
-                            smi_tx.write(hr.payload[i as usize]);
-                            i += 1;
-                        }
-                    }
-                )
+
+                while i < hr.size { // Send words from payload 1 by 1 to SMI TX FIFO
+                    freepin.set_low().unwrap();
+                    smi_tx.write(hr.payload[i as usize]);
+                    i += 1;
+                }
             }
             ValidInterfaces::GPIO => {
-                let mut freepin = cx.shared.freepin;
-                (freepin).lock(|freepin| { 
+
                     if hr.payload[0] != 0 {freepin.set_high().unwrap();}
                     else {freepin.set_low().unwrap();}
                     // We do not do slave response on set/config commands
-                })
             }
             _ => {}
         }
+    })
         // Exchange our Host Request for slave response that needs to be ready
         //let slave_response = hr.exchange_for_slave_response();
         //match slave_response {
