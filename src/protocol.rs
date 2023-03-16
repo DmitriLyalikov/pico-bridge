@@ -92,7 +92,7 @@ pub mod host {
                 1 => Ok(ValidInterfaces::SMI),
                 2 => Ok(ValidInterfaces::JTAG),
                 3 => Ok(ValidInterfaces::I2C),
-                4 =>  Ok(ValidInterfaces::SPI),
+                4 => Ok(ValidInterfaces::SPI),
                 5 => Ok(ValidInterfaces::Config),
                 6 => Ok(ValidInterfaces::GPIO),
                 // ... add more variants here
