@@ -40,7 +40,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::serial::{match_usb_serial_buf, write_serial};
-    use crate::protocol::{Send, ValidHostInterfaces,
+    use crate::protocol::{ValidHostInterfaces,
         host::{HostRequest, Clean, ValidInterfaces,}, 
         slave::{NotReady, SlaveResponse}};
 
@@ -249,6 +249,7 @@ mod app {
         "out pins, 1 side 1 [4]",
         "jmp x-- write_data side 0 [3]",
         "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
+        "out null 4 side 0",
         ".wrap",
         ); 
             
@@ -262,7 +263,7 @@ mod app {
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
-            .pull_threshold(0)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
+            .pull_threshold(12)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
             .set_pins(5, 1)
             .in_pin_base(5)
             .build(sm0);

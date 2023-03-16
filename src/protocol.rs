@@ -268,9 +268,9 @@ pub mod host {
                     // If it is SMI Write, we need PHY address and REG address + Data
                     else if self.operation == ValidOps::Write && self.size != 3 {
                         if self.size != 3 {return Err("Invalid Arguments for SMI: Write\n\r")}
-                        self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7;
-                        self.payload[1] = self.payload[2];
-                        self.size = 2;
+                        self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7 | self.payload[2] << 12;
+                        // self.payload[1] = self.payload[2];
+                        self.size = 1;
                     }
                 }
                 ValidInterfaces::Config => {
