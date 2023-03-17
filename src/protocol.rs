@@ -27,7 +27,7 @@
     }
 
 pub mod host {
-    use super::{combine_u16_to_u32, combine_u8_to_u32, reverse_first_16_bit};
+    use super::{combine_u16_to_u32, combine_u8_to_u32, reverse_first_16_bit, encode_smi_read};
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
     use super::Send;
@@ -262,7 +262,7 @@ pub mod host {
                     if self.operation == ValidOps::Read {
                         if self.size != 2 {return Err("Invalid Arguments for SMI: Read\n\r")}
                         // Opcode    PhyAddr               RegAddr
-                        self.payload[0] = 2 | self.payload[0] << 6 | self.payload[1] << 11;
+                        self.payload[0] = encode_smi_read(self.payload[0] as u8, self.payload[1] as u8);
                         self.size = 1;
                     }
                     // If it is SMI Write, we need PHY address and REG address + Data
@@ -431,4 +431,25 @@ fn reverse_first_16_bit(num: u32) -> u32 {
 }
 
 
+fn encode_smi_read(phy_addr: u8, reg_addr: u8) -> u32 {
+    let mut packet: u32 = 0;
 
+    // Set the op code (bits 0-1)
+    packet |= (2 as u32) & 0b11;
+
+    // Set the PHY address (bits 2-6)
+    packet |= (((reverse_bits(phy_addr)>> 3) as u32) & 0b11111) << 2;
+
+    // Set the register address (bits 7-11)
+    packet |= (((reverse_bits(reg_addr) >> 3) as u32) & 0b11111) << 7;
+
+    packet
+}
+
+fn reverse_bits(value: u8) -> u8 {
+    let mut result = 0;
+    for i in 0..8 {
+        result |= ((value >> i) & 1) << (7 - i);
+    }
+    result
+}

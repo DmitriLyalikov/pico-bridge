@@ -1,0 +1,11 @@
+c:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\debug\deps\string_cache-3859dd2eda9a38cc.rmeta: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\atom.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\dynamic_set.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\static_sets.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\trivial_impls.rs
+
+c:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\debug\deps\libstring_cache-3859dd2eda9a38cc.rlib: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\atom.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\dynamic_set.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\static_sets.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\trivial_impls.rs
+
+c:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\debug\deps\string_cache-3859dd2eda9a38cc.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\atom.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\dynamic_set.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\static_sets.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\trivial_impls.rs
+
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\lib.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\atom.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\dynamic_set.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\static_sets.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\string_cache-0.8.7\src\trivial_impls.rs:

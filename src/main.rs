@@ -263,7 +263,7 @@ mod app {
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopull(true)
-            .pull_threshold(12)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
+            .pull_threshold(20)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
             .set_pins(5, 1)
             .in_pin_base(5)
             .build(sm0);
