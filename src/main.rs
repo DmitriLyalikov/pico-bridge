@@ -216,7 +216,7 @@ mod app {
         ".wrap_target",
         "set pins, 0   side 0",
     "start:",
-        "pull block side 0",
+        "pull  side 0",
         "set pindirs, 1 side 0",
         "set x, 31 side 0",
     "preamble:",
@@ -249,7 +249,7 @@ mod app {
         "out pins, 1 side 1 [4]",
         "jmp x-- write_data side 0 [3]",
         "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
-        "out null 4 side 0",
+        "out null 5 side 0",
         ".wrap",
         ); 
             
@@ -258,12 +258,13 @@ mod app {
         let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
             .out_pins(5, 1)
             .side_set_pin_base(6)
-            .out_sticky(true)
+            .out_sticky(false)
             .clock_divisor_fixed_point(SMI_DEFAULT_CLKDIV, PIO_CLK_DIV_FRAQ) // freq = 1 / (int + (frac/256))
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
-            .autopull(true)
-            .pull_threshold(20)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
+            .autopush(true)
+            .autopull(false)
+            .pull_threshold(13)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
             .set_pins(5, 1)
             .in_pin_base(5)
             .build(sm0);
