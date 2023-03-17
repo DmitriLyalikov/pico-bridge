@@ -27,7 +27,7 @@
     }
 
 pub mod host {
-    use super::{combine_u16_to_u32, combine_u8_to_u32};
+    use super::{combine_u16_to_u32, combine_u8_to_u32, reverse_first_16_bit};
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
     use super::Send;
@@ -261,14 +261,14 @@ pub mod host {
                     // If it is SMI Read, we need PHY address and REG address
                     if self.operation == ValidOps::Read {
                         if self.size != 2 {return Err("Invalid Arguments for SMI: Read\n\r")}
-                        // Opcode    PhyAddr               RedAddr
-                        self.payload[0] = 2 | self.payload[0] << 2 | self.payload[1] << 7;
+                        // Opcode    PhyAddr               RegAddr
+                        self.payload[0] = 2 | self.payload[0] << 6 | self.payload[1] << 11;
                         self.size = 1;
                     }
                     // If it is SMI Write, we need PHY address and REG address + Data
                     else if self.operation == ValidOps::Write && self.size != 3 {
                         if self.size != 3 {return Err("Invalid Arguments for SMI: Write\n\r")}
-                        self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7 | self.payload[2] << 12;
+                        self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7 | self.payload[2] << 15;
                         // self.payload[1] = self.payload[2];
                         self.size = 1;
                     }
@@ -417,6 +417,16 @@ fn combine_u8_to_u32(values: &[u8]) -> [u32; 4] {
         result[i] = combined;
     }
 
+    result
+}
+
+fn reverse_first_16_bit(num: u32) -> u32 {
+    let mut result =  num;
+    result = ((result & 0xFFFF0000) >> 16) | ((result & 0x0000FFFF) << 16);
+    result = ((result & 0xFF00FF00) >> 8) | ((result & 0x00FF00FF) << 8);
+    result = ((result & 0xF0F0F0F0) >> 4) | ((result & 0x0F0F0F0F) << 4);
+    result = ((result & 0xCCCCCCCC) >> 2) | ((result & 0x33333333) << 2);
+    result = ((result & 0xAAAAAAAA) >> 1) | ((result & 0x55555555) << 1);
     result
 }
 
