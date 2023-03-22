@@ -48,7 +48,7 @@ mod app {
 
     /// Clock divider for the PIO SM
     const SMI_DEFAULT_CLKDIV: u16 = 10; // (133000000 / 2500000)
-    const PIO_CLK_DIV_FRAQ: u8 = 255;
+    const PIO_CLK_DIV_FRAQ: u8 = 0;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -216,7 +216,7 @@ mod app {
         ".wrap_target",
         "set pins, 0   side 0",
     "start:",
-        "pull  side 0",
+        "pull block side 0",
         "set pindirs, 1 side 0",
         "set x, 31 side 0",
     "preamble:",
@@ -263,7 +263,7 @@ mod app {
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopush(true)
-            .autopull(false)
+            .autopull(true)
             .pull_threshold(13)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
             .set_pins(5, 1)
             .in_pin_base(5)
@@ -460,11 +460,12 @@ mod app {
     // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
-    #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, freepin])]
+    #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, smi_rx, freepin])]
     fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
         let mut freepin = cx.shared.freepin;
         let mut smi_tx = cx.shared.smi_tx;
-        (freepin, smi_tx).lock(|freepin, smi_tx| {
+        let smi_rx = cx.shared.smi_rx;
+        (freepin, smi_tx, smi_rx).lock(|freepin, smi_tx, smi_rx| {
         match hr.interface {
             // For each additional supported interface, add another match arm that sends to the interface
             // Take handle of its TX FIFO and send payload word by word according to the size
@@ -473,7 +474,8 @@ mod app {
 
                 while i < hr.size { // Send words from payload 1 by 1 to SMI TX FIFO
                     freepin.set_low().unwrap();
-                    smi_tx.write(hr.payload[i as usize]);
+                    smi_tx.write_u16_replicated(hr.payload[i as usize] as u16);
+                    smi_rx.read();
                     i += 1;
                 }
             }
