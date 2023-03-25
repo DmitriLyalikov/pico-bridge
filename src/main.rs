@@ -205,7 +205,6 @@ mod app {
                 .serial_number("TEST")
                 .device_class(2) // from https://www.usb.org/defined-class-codes
                 .build();
-
          //*****
         // Initialization of the PIO0 and SMI state machine
         let _mdio_pin = pins.gpio5.into_mode::<hal::gpio::FunctionPio0>();
@@ -462,9 +461,9 @@ mod app {
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
     // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
     #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, smi_rx, freepin])]
-    fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
-        let mut freepin = cx.shared.freepin;
-        let mut smi_tx = cx.shared.smi_tx;
+    fn send_out(cx: send_out::Context, hr: HostRequest<Clean>) {
+        let freepin = cx.shared.freepin;
+        let smi_tx = cx.shared.smi_tx;
         let smi_rx = cx.shared.smi_rx;
         (freepin, smi_tx, smi_rx).lock(|freepin, smi_tx, smi_rx| {
         match hr.interface {

@@ -1,6 +1,5 @@
 // Check if this must implement send and sync
     use core::result::Result;
-    use embedded_hal::blocking::serial::write;
 
     use self::slave::{SlaveResponse, NotReady, HostErr};
 
@@ -29,7 +28,7 @@
     }
 
 pub mod host {
-    use super::{combine_u16_to_u32, combine_u8_to_u32, reverse_first_16_bit, encode_smi};
+    use super::{combine_u16_to_u32, combine_u8_to_u32, encode_smi};
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
     use super::Send;
@@ -419,16 +418,6 @@ fn combine_u8_to_u32(values: &[u8]) -> [u32; 4] {
         result[i] = combined;
     }
 
-    result
-}
-
-fn reverse_first_16_bit(num: u32) -> u32 {
-    let mut result =  num;
-    result = ((result & 0xFFFF0000) >> 16) | ((result & 0x0000FFFF) << 16);
-    result = ((result & 0xFF00FF00) >> 8) | ((result & 0x00FF00FF) << 8);
-    result = ((result & 0xF0F0F0F0) >> 4) | ((result & 0x0F0F0F0F) << 4);
-    result = ((result & 0xCCCCCCCC) >> 2) | ((result & 0x33333333) << 2);
-    result = ((result & 0xAAAAAAAA) >> 1) | ((result & 0x55555555) << 1);
     result
 }
 

@@ -70,7 +70,6 @@ pub fn print_menu(serial: &mut SerialPort<'static, hal::usb::UsbBus>){
 *  M / m - Print menu\n\r
 *    - smi r phyAddr RegAddr\n\r
 *    - smi w phyAddr RegAddr Data\n\r
-*    - smi reset\n\r
 *    - smi setclk frequency\n\r
 *    - gpio set level\n\r 
 *****************\n\r
