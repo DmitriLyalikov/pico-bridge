@@ -1,5 +1,7 @@
 // Check if this must implement send and sync
     use core::result::Result;
+    use embedded_hal::blocking::serial::write;
+
     use self::slave::{SlaveResponse, NotReady, HostErr};
 
     pub trait Send{
@@ -27,7 +29,7 @@
     }
 
 pub mod host {
-    use super::{combine_u16_to_u32, combine_u8_to_u32, reverse_first_16_bit, encode_smi_read};
+    use super::{combine_u16_to_u32, combine_u8_to_u32, reverse_first_16_bit, encode_smi};
     use core::{marker::PhantomData};
     use core::convert::TryFrom;
     use super::Send;
@@ -261,15 +263,15 @@ pub mod host {
                     // If it is SMI Read, we need PHY address and REG address
                     if self.operation == ValidOps::Read {
                         if self.size != 2 {return Err("Invalid Arguments for SMI: Read\n\r")}
-                        // Opcode    PhyAddr               RegAddr
-                        self.payload[0] = encode_smi_read(self.payload[0] as u8, self.payload[1] as u8);
+                                                        // Opcode    PhyAddr               RegAddr
+                        self.payload[0] = encode_smi(true, self.payload[0] as u8, self.payload[1] as u8, 0_u16);
                         self.size = 1;
                     }
                     // If it is SMI Write, we need PHY address and REG address + Data
-                    else if self.operation == ValidOps::Write && self.size != 3 {
+                    else if self.operation == ValidOps::Write {
                         if self.size != 3 {return Err("Invalid Arguments for SMI: Write\n\r")}
-                        self.payload[0] = 1 | self.payload[0] << 2 | self.payload[1] << 7 | self.payload[2] << 15;
-                        // self.payload[1] = self.payload[2];
+                        self.payload[0] = encode_smi(false, self.payload[0] as u8, self.payload[1] as u8, self.payload[2] as u16);
+
                         self.size = 1;
                     }
                 }
@@ -431,25 +433,46 @@ fn reverse_first_16_bit(num: u32) -> u32 {
 }
 
 
-fn encode_smi_read(phy_addr: u8, reg_addr: u8) -> u32 {
+fn encode_smi(read: bool, phy_addr: u8, reg_addr: u8, write_data: u16) -> u32 {
     let mut packet: u32 = 0;
 
-    // Set the op code (bits 0-1)
-    packet |= (2 as u32) & 0b11;
-
+    
+    if read {
+        packet |= (1 as u32) & 0b11; // The opcodes are reversed on purpose, LSB
+    }
+    else {
+        // This is reversed, on purpose 
+        packet |= (2 as u32) & 0b11;
+    }
     // Set the PHY address (bits 2-6)
-    packet |= (((reverse_bits(phy_addr)>> 3) as u32) & 0b11111) << 2;
+    packet |= (((reverse_u8_bits(phy_addr)>> 3) as u32) & 0b11111) << 2;
 
     // Set the register address (bits 7-11)
-    packet |= (((reverse_bits(reg_addr) >> 3) as u32) & 0b11111) << 7;
+    packet |= (((reverse_u8_bits(reg_addr) >> 3) as u32) & 0b11111) << 7;
+
+    if !read {
+        packet |= 1 << 12; // set the 13th bit to 1
+        packet &= !0b111111111111100000000000000000;
+
+        // Shift u16_value left by 14 bits and combine with u32_value
+        packet |= (reverse_u16_bits(write_data) as u32) << 13;
+    }
 
     packet
 }
 
-fn reverse_bits(value: u8) -> u8 {
+fn reverse_u8_bits(value: u8) -> u8 {
     let mut result = 0;
     for i in 0..8 {
         result |= ((value >> i) & 1) << (7 - i);
+    }
+    result
+}
+
+fn reverse_u16_bits(value: u16) -> u16 {
+    let mut result = 0;
+    for i in 0..16 {
+        result |= ((value >> i) & 1) << (15 - i);
     }
     result
 }

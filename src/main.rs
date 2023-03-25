@@ -232,24 +232,25 @@ mod app {
         "set x, 15 side 0 [3]",
         "out pins, 1   side 1 [4]",
         "jmp y-- addr side 0 [1]",
-        "out null 20 side 0  [3]",  // Discard remaining 20 bits of 32 bit word (we wrote first 12 which are OP/PHY/REG fields)
-        "nop side 1 [4]",
+        "set pins, 0 side 0  [3]",  
+        "out y 1 side 1 [4]",
         "nop side 0 [4]",
         "nop side 1 [4]",
-        "jmp !osre write_data    side 0 [2]", // If Autopull pulled in another word from our TX FIFO, we have data to write
+        "jmp write_data    side 0 [2]", // If Autopull pulled in another word from our TX FIFO, we have data to write
         "set pindirs, 0 side 0 [2]",
     "read_data:",
         "in pins 1 side 1 [4]",
         "jmp x-- read_data side 0 [4]",
         "push side 0",
         "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
+        "out null 19 side 0"   // // Discard remaining 19 bits of 32 bit word (we wrote first 12 which are OP/PHY/REG fields)
         "jmp start side 0",
     "write_data:",
         "nop side 0 [1]",
         "out pins, 1 side 1 [4]",
         "jmp x-- write_data side 0 [3]",
-        "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
-        "out null 5 side 0",
+        "set pins 0 side 0",        // Set IRQ flag with index 1 (State machine 1)
+        "out null 32 side 0",
         ".wrap",
         ); 
             
@@ -263,8 +264,8 @@ mod app {
             .out_shift_direction(ShiftDirection::Right)
             .in_shift_direction(ShiftDirection::Left)
             .autopush(true)
-            .autopull(true)
-            .pull_threshold(13)  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
+            .autopull(false)
+            // .pull_threshold()  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
             .set_pins(5, 1)
             .in_pin_base(5)
             .build(sm0);
@@ -470,14 +471,10 @@ mod app {
             // For each additional supported interface, add another match arm that sends to the interface
             // Take handle of its TX FIFO and send payload word by word according to the size
             ValidInterfaces::SMI => {
-                let mut i = 0;
-
-                while i < hr.size { // Send words from payload 1 by 1 to SMI TX FIFO
-                    freepin.set_low().unwrap();
-                    smi_tx.write_u16_replicated(hr.payload[i as usize] as u16);
-                    smi_rx.read();
-                    i += 1;
-                }
+                    // Send words from payload 1 by 1 to SMI TX FIFO
+                freepin.set_low().unwrap();
+                smi_tx.write(hr.payload[0]);
+                smi_rx.read();
             }
             ValidInterfaces::GPIO => {
 

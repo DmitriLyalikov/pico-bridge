@@ -11,6 +11,8 @@ use core::str::SplitWhitespace;
 
 
 // Helper function to ensure all data is written across the serial interface
+#[inline(never)]
+#[link_section = ".data.bar"] // Execute from IRAM
 pub fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &str, block: bool) {
     let write_ptr = buf.as_bytes();
 
@@ -40,6 +42,8 @@ pub fn write_serial(serial: &mut SerialPort<'static, hal::usb::UsbBus>, buf: &st
 }
 
 // Match the Serial Input commands to a hardware/software request
+#[inline(never)]
+#[link_section = ".data.bar"] // Execute from IRAM
 pub fn match_usb_serial_buf( buf: &[u8; 64],
     serial: &mut SerialPort<'static, hal::usb::UsbBus> ) 
     -> Result<HostRequest<host::Unclean>, &'static str> {
@@ -165,6 +169,8 @@ pub fn message_parse_build<'input>(input: &'input str)
 // Helper function to take &str in decimal or hex form
 // and return u32.
 // ie: s = "0xFF"  will return decimal value 255
+#[inline(never)]
+#[link_section = ".data.bar"] // Execute from IRAM
 pub fn bytes_to_number(s: &str) -> Result<u32, &'static str> {
     let mut result: u32 = 0;
     // Check if the input is hex or decimal
