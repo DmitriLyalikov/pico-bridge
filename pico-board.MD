@@ -60,15 +60,17 @@ Capture Signal Integrity characteristics across different frequencies, all DUT f
 ## Debugging
 ## Appendix
 * [Raspberry Pi Pico][1]
-* [Probe-RS `probe-rs-debugger`][2]
-* [Raspberry Pi Pico `elf2uf2`][3]
-* [Raspberry Pi Pico `picotool`][4]
-* [Example Pico Dev Board][5]
+* [RP2040 Design Guide][2]
+* [Probe-RS `probe-rs-debugger`][3]
+* [Raspberry Pi Pico `elf2uf2`][4]
+* [Raspberry Pi Pico `picotool`][5]
+* [Example Pico Dev Board][6]
 
 
 <!-- Reference -->
 [1]: https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html
-[2]: https://github.com/probe-rs/vscode
-[3]: https://github.com/JoNil/elf2uf2-rs
-[4]: https://github.com/raspberrypi/picotool
-[5]: https://oshwlab.com/tim.savage/pipico-devboard
+[2]: https://github.com/Sleepdealr/RP2040-designguide
+[3]: https://github.com/probe-rs/vscode
+[4]: https://github.com/JoNil/elf2uf2-rs
+[5]: https://github.com/raspberrypi/picotool
+[6]: https://oshwlab.com/tim.savage/pipico-devboard
