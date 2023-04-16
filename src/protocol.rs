@@ -54,8 +54,8 @@ pub mod host {
         None,
         Read,
         Write, 
-        Set,
-        Get,
+        SmiSet,
+        SmiGet,
     }
 
     impl TryFrom<u16> for ValidOps {
@@ -66,8 +66,8 @@ pub mod host {
                 0 => Ok(ValidOps::None),
                 1 => Ok(ValidOps::Read),
                 2 => Ok(ValidOps::Write),
-                3 => Ok(ValidOps::Set),
-                4 =>  Ok(ValidOps::Get),
+                3 => Ok(ValidOps::SmiSet),
+                4 =>  Ok(ValidOps::SmiGet),
                 // ... add more variants here
                 _ => Err(()),
             }
@@ -107,7 +107,7 @@ pub mod host {
         proc_id: u8,
         pub  interface: ValidInterfaces,
         host_config: ValidHostInterfaces,
-        operation: ValidOps,
+        pub operation: ValidOps,
         checksum: u8,         // Wrapping checksum
         pub size: u8,             // A value between 0 and 4
         pub payload: [u32; 4],     // Max payload size over SPI is 4 bytes 
@@ -275,6 +275,20 @@ pub mod host {
                     }
                 }
                 ValidInterfaces::Config => {
+                    if self.operation == ValidOps::SmiSet {
+                        if self.size != 1 {return Err("Invalid Arguments SMI Set\n\r")}
+                        match self.payload[0] {
+                            10 => {
+                                self.payload[0] = 0
+                            }
+                            1 => {
+                                self.payload[0] = 10
+                            }
+                            _ => {
+                                return Err("Clock frequency not support yet!\n\r")
+                            }
+                        }
+                    }
                 }
 
                 ValidInterfaces::GPIO => {

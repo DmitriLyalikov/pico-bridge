@@ -1,0 +1,12 @@
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\byte-c4266c8ea1f5be47.rmeta: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\mod.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bool.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bytes.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\num.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\str.rs
+
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\libbyte-c4266c8ea1f5be47.rlib: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\mod.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bool.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bytes.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\num.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\str.rs
+
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\byte-c4266c8ea1f5be47.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\mod.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bool.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bytes.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\num.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\str.rs
+
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\lib.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\mod.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bool.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\bytes.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\num.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\byte-0.2.6\src\ctx\str.rs:

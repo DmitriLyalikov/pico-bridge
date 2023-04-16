@@ -1,0 +1,5 @@
+cargo:rustc-cfg=cortex_m
+cargo:rustc-cfg=armv6m
+cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\release\build\cortex-m-rt-3193909fa526a617\out
+cargo:rerun-if-changed=build.rs
+cargo:rerun-if-changed=link.x.in

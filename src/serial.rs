@@ -140,8 +140,8 @@ pub fn message_parse_build<'input>(input: &'input str)
         Some("w" | "W") => {
             hr.set_operation(ValidOps::Write);
         }
-        Some("set" | "SET") => {
-            hr.set_operation(ValidOps::Set);
+        Some("smiset" | "SMISET") => {
+            hr.set_operation(ValidOps::SmiSet);
         }
         _ => {
             return Err("Invalid Operation\n\r");
