@@ -323,8 +323,9 @@ mod app {
     // into the rx_buffer
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds=SPI0_IRQ, priority=3, local=[spi_dev, spi_tx_consumer], shared = [serial])]
+    #[task(binds=SPI0_IRQ, priority=2, local=[spi_dev, spi_tx_consumer], shared = [serial])]
     fn spi0(cx: spi0::Context) {  
+         
         // SPI0_IRQ State
         // Debug Breakpoint
         // Test points:
@@ -336,13 +337,13 @@ mod app {
         //      SPI0_SMIS_0x4003c014 Expect: 0xc, RX/TX IM are unmasked
         //      SPI0_SRIS_0x4003c018: This will tell what interrupt source asserted SPI0_IRQ
 
-        let mut serial = cx.shared.serial;
-        let _spi_dev = cx.local.spi_dev;
-        serial.lock(|serial|
-        {
-            write_serial(serial, "Assert IRQ", false);
-            let _rx_buf = [0_u8; 1];
-        }); 
+        // let mut serial = cx.shared.serial;
+        // let _spi_dev = cx.local.spi_dev;
+        //serial.lock(|serial|
+        // {
+        //     write_serial(serial, "Assert IRQ", false);
+        //     let _rx_buf = [0_u8; 1];
+        // }); 
         
 
         //if spi_dev.ssm() {
