@@ -37,7 +37,7 @@
         watchdog,).ok().unwrap() ; let sio = hal :: Sio :: new(c.device.SIO) ;
         let pins = hal :: gpio :: Pins ::
         new(c.device.IO_BANK0, c.device.PADS_BANK0, sio.gpio_bank0, & mut
-        resets,) ; let freepin = pins.gpio28.into_push_pull_output() ; let
+        resets,) ; let freepin = pins.gpio25.into_push_pull_output() ; let
         _spi_sclk = pins.gpio18.into_mode :: < hal :: gpio :: FunctionSpi > ()
         ; let _spi_mosi = pins.gpio17.into_mode :: < hal :: gpio ::
         FunctionSpi > () ; let _spi_miso = pins.gpio16.into_mode :: < hal ::
@@ -245,7 +245,7 @@
         StateMachine < (pac :: PIO0, SM0), hal :: pio :: Running >, smi_tx :
         hal :: pio :: Tx < (pac :: PIO0, SM0) >, smi_rx : hal :: pio :: Rx <
         (pac :: PIO0, SM0) >, serial_buf : [u8 ; 64], _spi_tx_buf : [u16 ; 9],
-        freepin : Pin < Gpio28, hal :: gpio :: Output < hal :: gpio ::
+        freepin : Pin < Gpio25, hal :: gpio :: Output < hal :: gpio ::
         PushPull > >,
     } #[doc = " RTIC local resource struct"] struct Local
     {
@@ -819,15 +819,15 @@
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] #[link_section = ".uninit.rtic8"] static
     __rtic_internal_shared_resource_freepin : rtic :: RacyCell < core :: mem
-    :: MaybeUninit < Pin < Gpio28, hal :: gpio :: Output < hal :: gpio ::
+    :: MaybeUninit < Pin < Gpio25, hal :: gpio :: Output < hal :: gpio ::
     PushPull > > >> = rtic :: RacyCell ::
     new(core :: mem :: MaybeUninit :: uninit()) ; impl < 'a > rtic :: Mutex
     for shared_resources :: freepin_that_needs_to_be_locked < 'a >
     {
-        type T = Pin < Gpio28, hal :: gpio :: Output < hal :: gpio :: PushPull
+        type T = Pin < Gpio25, hal :: gpio :: Output < hal :: gpio :: PushPull
         > > ; #[inline(always)] fn lock < RTIC_INTERNAL_R >
         (& mut self, f : impl
-        FnOnce(& mut Pin < Gpio28, hal :: gpio :: Output < hal :: gpio ::
+        FnOnce(& mut Pin < Gpio25, hal :: gpio :: Output < hal :: gpio ::
         PushPull > >) -> RTIC_INTERNAL_R) -> RTIC_INTERNAL_R
         {
             #[doc = r" Priority ceiling"] const CEILING : u8 = 3u8 ; unsafe
@@ -1121,7 +1121,7 @@
             (pac :: PIO0, SM0) > > () ; rtic :: export :: assert_send :: < hal
             :: pio :: Rx < (pac :: PIO0, SM0) > > () ; rtic :: export ::
             assert_send :: < [u8 ; 64] > () ; rtic :: export :: assert_send ::
-            < Pin < Gpio28, hal :: gpio :: Output < hal :: gpio :: PushPull >
+            < Pin < Gpio25, hal :: gpio :: Output < hal :: gpio :: PushPull >
             > > () ; rtic :: export :: assert_send :: < hal :: Spi < hal ::
             spi :: Enabled, pac :: SPI0, 8 > > () ; rtic :: export ::
             assert_send :: < hal :: uart :: UartPeripheral < hal :: uart ::

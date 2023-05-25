@@ -78,14 +78,14 @@ mod app {
         _spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
-        freepin: Pin<Gpio28, hal::gpio::Output<hal::gpio::PushPull>>,
+        freepin: Pin<Gpio25, hal::gpio::Output<hal::gpio::PushPull>>,
     }
 
     #[local]
     struct Local {
         spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         _uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
-        //cs_pin: Pin<Gpio22, crate::app::hal::gpio::Input<crate::app::hal::gpio::Floating>>,
+
         spi_tx_producer: Producer<'static, [u8; 18], 3>,
         spi_tx_consumer: Consumer<'static, [u8; 18], 3>,
 
@@ -126,7 +126,7 @@ mod app {
             &mut resets,
         );
 
-        let freepin = pins.gpio28.into_push_pull_output();
+        let freepin = pins.gpio25.into_push_pull_output();
         // SPI Pre-Init Reset State
         // DEBUG Breakpoint Here: 
         // Test points:
@@ -293,9 +293,10 @@ mod app {
                 usb_dev,
 
                 pio0,
-                smi_master,   // SMI PIO State Machine 
-                smi_tx,       // SMI TX FIFO
-                smi_rx,       // SMI RX FIFO
+                smi_master,      // SMI PIO State Machine 
+                // smi_master_freq, // SMI State Machine frequency
+                smi_tx,          // SMI TX FIFO
+                smi_rx,          // SMI RX FIFO
 
                 serial_buf,
                 _spi_tx_buf,
