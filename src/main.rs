@@ -489,8 +489,11 @@ mod app {
         let smi_master = cx.shared.smi_master;
         let serial = cx.shared.serial; 
 
+        let producer = cx.local.producer;
+
         let mut return_string = "\n\r->";
-        match cx.local.host_consumer.dequeue()  {
+        let mut hr = cx.local.host_consumer.dequeue();
+        match hr  {
             Some(mut hr) => {
                 (freepin, smi_tx, smi_rx, smi_master, serial).lock(|freepin, smi_tx, smi_rx, smi_master, serial| {
                 match hr.interface {
@@ -532,7 +535,7 @@ mod app {
                     match slave_response {
                         Ok(val) => {
                             // enqueue our new slave response
-                            cx.local.producer.enqueue(val).unwrap();
+                            // producer.enqueue(val).unwrap();
                         }
                         Err(_err) => {
                         // This should never happen
@@ -551,7 +554,6 @@ mod app {
     #[task(binds = PIO0_IRQ_0, priority = 3, shared = [serial, pio0, smi_rx], local = [consumer])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
         // All statemachines implement IRQ flags, of which the first 0-3 LSB 
-        // 
         
         if let Some(mut slave_response) = cx.local.consumer.dequeue() {
 
@@ -589,7 +591,8 @@ mod app {
                     // TODO Add match case for this
                     match slave_response.init_ready() {
                         Ok(sr) => {
-                            respond_to_host::spawn(sr);
+                            write_serial(serial, "Hi", false);
+                            // respond_to_host::spawn(sr);
                         }
                         Err(err) => {
                                     write_serial(serial, err, false);

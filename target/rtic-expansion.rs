@@ -206,8 +206,8 @@
                     } _ => {}
                 } pio0.clear_irq(0xF) ; match slave_response.init_ready()
                 {
-                    Ok(sr) => { respond_to_host :: spawn(sr) ; } Err(err) =>
-                    { write_serial(serial, err, false) ; }
+                    Ok(sr) => { write_serial(serial, "Hi", false) ; } Err(err)
+                    => { write_serial(serial, err, false) ; }
                 }
             })
         } else {}
@@ -217,8 +217,9 @@
         use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let mut
         slave_response = false ; let freepin = cx.shared.freepin ; let smi_tx
         = cx.shared.smi_tx ; let smi_rx = cx.shared.smi_rx ; let smi_master =
-        cx.shared.smi_master ; let serial = cx.shared.serial ; let mut
-        return_string = "\n\r->" ; match cx.local.host_consumer.dequeue()
+        cx.shared.smi_master ; let serial = cx.shared.serial ; let producer =
+        cx.local.producer ; let mut return_string = "\n\r->" ; let mut hr =
+        cx.local.host_consumer.dequeue() ; match hr
         {
             Some(mut hr) =>
             {
@@ -258,11 +259,7 @@
                     slave_response
                     {
                         let slave_response = hr.exchange_for_slave_response() ;
-                        match slave_response
-                        {
-                            Ok(val) => { cx.local.producer.enqueue(val).unwrap() ; }
-                            Err(_err) => {}
-                        }
+                        match slave_response { Ok(val) => {} Err(_err) => {} }
                     }
                 }) ;
             } None => {}
