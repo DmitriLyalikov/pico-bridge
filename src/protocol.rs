@@ -277,7 +277,7 @@ pub mod host {
                 ValidInterfaces::Config => {
                     if self.operation == ValidOps::SmiSet {
                         if self.size != 1 {return Err("Invalid Arguments SMI Set\n\r")}
-                        match self.payload[0] {
+                        /* match self.payload[0] {
                             10 => {
                                 self.payload[0] = 0
                             }
@@ -287,7 +287,7 @@ pub mod host {
                             _ => {
                                 return Err("Clock frequency not support yet!\n\r")
                             }
-                        }
+                        }*/
                     }
                 }
 

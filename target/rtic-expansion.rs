@@ -20,7 +20,7 @@
         { NotReady, SlaveResponse }
     } ; use core :: str ; #[doc = r" User code from within the module"]
     #[doc = " Clock divider for the PIO SM"] const SMI_DEFAULT_CLKDIV : u16 =
-    10 ; const PIO_CLK_DIV_FRAQ : u8 = 0 ; type UartTx = Pin < Gpio0,
+    4 ; const PIO_CLK_DIV_FRAQ : u8 = 145 ; type UartTx = Pin < Gpio0,
     FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
@@ -217,8 +217,14 @@
                 {
                     if hr.operation == ValidOps :: SmiSet
                     {
-                        smi_master.clock_divisor_fixed_point(hr.payload [0] as u16,
-                        0) ;
+                        if hr.payload [0] == 25
+                        { smi_master.set_clock_divisor(4.56640625) ; } else if
+                        hr.payload [0] == 10
+                        { smi_master.clock_divisor_fixed_point(1, 145) ; } else
+                        {
+                            smi_master.clock_divisor_fixed_point(hr.payload [0] as u16,
+                            0) ;
+                        }
                     }
                 } ValidInterfaces :: GPIO =>
                 {

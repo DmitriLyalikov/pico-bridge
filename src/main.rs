@@ -47,8 +47,8 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const SMI_DEFAULT_CLKDIV: u16 = 10; // (133000000 / 2500000)
-    const PIO_CLK_DIV_FRAQ: u8 = 0;
+    const SMI_DEFAULT_CLKDIV: u16 = 4; // (133000000 / 2500000)
+    const PIO_CLK_DIV_FRAQ: u8 = 145;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -271,7 +271,6 @@ mod app {
         sm.set_pindirs([(5, PinDir::Output)]);
         sm.set_pindirs([(6, PinDir::Output)]);
         let smi_master = sm.start();
-        
         let serial_buf = [0_u8; 64];
         let _spi_tx_buf = [0_u16; 9];
 
@@ -479,7 +478,14 @@ mod app {
             }
             ValidInterfaces::Config => {
                 if hr.operation == ValidOps::SmiSet {
-                    smi_master.clock_divisor_fixed_point(hr.payload[0] as u16, 0);
+                    if hr.payload[0] == 25 {
+                            smi_master.set_clock_divisor(4.56640625);
+                            // smi_master.clock_divisor_fixed_point(4, 145);
+                    }
+                    else if hr.payload[0] == 10 {
+                        smi_master.clock_divisor_fixed_point(1, 145);
+                    }
+                    else {smi_master.clock_divisor_fixed_point(hr.payload[0] as u16, 0);}
                 }
             }
             ValidInterfaces::GPIO => {
