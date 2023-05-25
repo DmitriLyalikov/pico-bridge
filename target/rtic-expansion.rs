@@ -154,8 +154,16 @@
                                         let clean = hr.init_clean() ; match clean
                                         {
                                             Ok(hr) =>
-                                            { host_producer.enqueue(hr) ; send_out :: spawn() ; }
-                                            Err(err) => { write_serial(serial_a, err, false) ; }
+                                            {
+                                                match host_producer.enqueue(hr)
+                                                {
+                                                    Ok(..) => {} Err(..) =>
+                                                    {
+                                                        write_serial(serial_a,
+                                                        "Error Pushing Host Request to queue\n\r", false) ;
+                                                    }
+                                                } ; send_out :: spawn().unwrap() ;
+                                            } Err(err) => { write_serial(serial_a, err, false) ; }
                                         }
                                     } Err("Ok") => {} Err(err) =>
                                     { write_serial(serial_a, err, false) ; }
@@ -206,13 +214,13 @@
     } #[doc = " User SW task send_out"] #[allow(non_snake_case)] fn
     send_out(cx : send_out :: Context)
     {
-        use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let
-        freepin = cx.shared.freepin ; let smi_tx = cx.shared.smi_tx ; let
-        smi_rx = cx.shared.smi_rx ; let smi_master = cx.shared.smi_master ;
-        let serial = cx.shared.serial ; let mut return_string = "\n\r->" ;
-        match cx.local.host_consumer.dequeue()
+        use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let mut
+        slave_response = false ; let freepin = cx.shared.freepin ; let smi_tx
+        = cx.shared.smi_tx ; let smi_rx = cx.shared.smi_rx ; let smi_master =
+        cx.shared.smi_master ; let serial = cx.shared.serial ; let mut
+        return_string = "\n\r->" ; match cx.local.host_consumer.dequeue()
         {
-            Some(hr) =>
+            Some(mut hr) =>
             {
                 (freepin, smi_tx, smi_rx, smi_master,
                 serial).lock(| freepin, smi_tx, smi_rx, smi_master, serial |
@@ -220,8 +228,10 @@
                     match hr.interface
                     {
                         ValidInterfaces :: SMI =>
-                        { smi_tx.write(hr.payload [0]) ; smi_rx.read() ; }
-                        ValidInterfaces :: Config =>
+                        {
+                            smi_tx.write(hr.payload [0]) ; smi_rx.read() ;
+                            slave_response = true ;
+                        } ValidInterfaces :: Config =>
                         {
                             if hr.operation == ValidOps :: SmiSet
                             {
@@ -244,7 +254,16 @@
                             if hr.payload [0] != 0 { freepin.set_high().unwrap() ; }
                             else { freepin.set_low().unwrap() ; }
                         } _ => {}
-                    } write_serial(serial, return_string, false) ;
+                    } write_serial(serial, return_string, false) ; if
+                    slave_response
+                    {
+                        let slave_response = hr.exchange_for_slave_response() ;
+                        match slave_response
+                        {
+                            Ok(val) => { cx.local.producer.enqueue(val).unwrap() ; }
+                            Err(_err) => {}
+                        }
+                    }
                 }) ;
             } None => {}
         }

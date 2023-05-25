@@ -428,8 +428,15 @@ mod app {
                                             let clean = hr.init_clean(); // Validate it
                                             match clean {
                                                 Ok(hr) => {
-                                                    host_producer.enqueue(hr);
-                                                    send_out::spawn(); // Send our clean host request to its destination
+                                                    match host_producer.enqueue(hr) {
+                                                        Ok(..) => {
+
+                                                        }
+                                                        Err(..) => {
+                                                            write_serial(serial_a, "Error Pushing Host Request to queue\n\r", false);
+                                                        }
+                                                    };
+                                                    send_out::spawn().unwrap(); // Send our clean host request to its destination
                                                 }
                                                 Err(err) =>  {
                                                     write_serial(serial_a, err, false);
@@ -474,14 +481,17 @@ mod app {
     #[task(priority = 3, local = [producer, host_consumer], shared = [serial, smi_master, smi_tx, smi_rx, freepin])]
     fn send_out(cx: send_out::Context) {
 
+        let mut slave_response = false;
+
         let freepin = cx.shared.freepin;
         let smi_tx = cx.shared.smi_tx;
         let smi_rx = cx.shared.smi_rx;
         let smi_master = cx.shared.smi_master;
         let serial = cx.shared.serial; 
+
         let mut return_string = "\n\r->";
         match cx.local.host_consumer.dequeue()  {
-            Some(hr) => {
+            Some(mut hr) => {
                 (freepin, smi_tx, smi_rx, smi_master, serial).lock(|freepin, smi_tx, smi_rx, smi_master, serial| {
                 match hr.interface {
                     // For each additional supported interface, add another match arm that sends to the interface
@@ -490,6 +500,7 @@ mod app {
                         // Send 32 bit word of for either read or write to SMI TX FIFO
                         smi_tx.write(hr.payload[0]);
                         smi_rx.read(); // for now we will empty the RX FIFO
+                        slave_response = true;
                     }
                     ValidInterfaces::Config => {
                         if hr.operation == ValidOps::SmiSet {
@@ -514,21 +525,23 @@ mod app {
                     _ => {}
                 }
                 write_serial(serial, return_string, false);
+                
+                if slave_response {
+                    // Exchange our Host Request for slave response that needs to be ready
+                    let slave_response = hr.exchange_for_slave_response();
+                    match slave_response {
+                        Ok(val) => {
+                            // enqueue our new slave response
+                            cx.local.producer.enqueue(val).unwrap();
+                        }
+                        Err(_err) => {
+                        // This should never happen
+                        }
+                    }
+                }
                 });
             }
-
             None => {}
-            // Exchange our Host Request for slave response that needs to be ready
-            //let slave_response = hr.exchange_for_slave_response();
-            //match slave_response {
-            //    Ok(val) => {
-                    // enqueue our new slave response
-            //        cx.local.producer.enqueue(val).unwrap();
-            //   }
-            //   Err(_err) => {
-                    // This should never happen
-            //   }
-            //}
             }
     }
 
