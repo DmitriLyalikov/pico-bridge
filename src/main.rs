@@ -74,6 +74,8 @@ mod app {
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
 
+        host_producer: Producer<'static, HostRequest<Clean>, 3>,
+
         #[lock_free]
         _spi_tx_buf: [u16; 9],
 
@@ -89,13 +91,16 @@ mod app {
         spi_tx_producer: Producer<'static, [u8; 18], 3>,
         spi_tx_consumer: Consumer<'static, [u8; 18], 3>,
 
+        host_consumer: Consumer<'static, HostRequest<Clean>, 3>,
+
         producer: Producer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to writng to queue
         consumer: Consumer<'static, SlaveResponse<NotReady>, 3>,    // Statically allocated non-blocking, non critical section access to read to queue 
     }
 
     #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<hal::usb::UsbBus>> = None,
         spi_q: Queue<[u8; 18], 3> = Queue::new(),
-        q: Queue<SlaveResponse<NotReady>, 3> = Queue::new()])]
+        q: Queue<SlaveResponse<NotReady>, 3> = Queue::new(),
+        host_q: Queue<HostRequest<Clean>, 3> = Queue::new()])]
     fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
         // Initialization of the system clock.
@@ -280,6 +285,7 @@ mod app {
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
+        let (host_producer, host_consumer) = c.local.host_q.split();
 
         //spi_dev.write(&[1_u8, 2_u8, 3_u8, 4_u8, 5_u8, 6_u8, 7_u8, 8_u8]).unwrap();
         // Set core to sleep
@@ -301,6 +307,7 @@ mod app {
                 serial_buf,
                 _spi_tx_buf,
 
+                host_producer,
                 freepin,
             },
             Local {
@@ -310,6 +317,8 @@ mod app {
 
                 spi_tx_producer,
                 spi_tx_consumer,
+
+                host_consumer,
 
                 producer,
                 consumer,
@@ -377,15 +386,16 @@ mod app {
     // USB interrupt handler hardware task. Runs every time host requests new data
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, serial_buf, freepin])]
+    #[task(binds = USBCTRL_IRQ, priority = 3, shared = [serial, usb_dev, serial_buf, freepin, host_producer])]
     fn usb_rx(cx: usb_rx::Context) {
         let usb_dev = cx.shared.usb_dev;
         let serial = cx.shared.serial;
         let serial_buf = cx.shared.serial_buf;
         let freepin = cx.shared.freepin;
+        let host_producer = cx.shared.host_producer;
 
-        (usb_dev, serial, serial_buf, freepin).lock(
-            |usb_dev_a, serial_a, serial_buf, freepin| {
+        (usb_dev, serial, serial_buf, freepin, host_producer).lock(
+            |usb_dev_a, serial_a, serial_buf, freepin, host_producer| {
                 // Check for new data
                 if  usb_dev_a.poll(&mut [serial_a]) {
                     let mut buf = [0u8; 64];
@@ -418,8 +428,8 @@ mod app {
                                             let clean = hr.init_clean(); // Validate it
                                             match clean {
                                                 Ok(hr) => {
-                                                    freepin.set_low().unwrap();
-                                                    send_out::spawn(hr); // Send our clean host request to its destination
+                                                    host_producer.enqueue(hr);
+                                                    send_out::spawn(); // Send our clean host request to its destination
                                                 }
                                                 Err(err) =>  {
                                                     write_serial(serial_a, err, false);
@@ -460,55 +470,66 @@ mod app {
 
     // Software task that sends clean HostRequest to its destination (SysConfig or state machine)
     // Must validate that Associated State Machine is available and ready before sending, if not, return an Err
-    // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine
-    #[task(priority = 3, local = [producer], shared = [serial, smi_master, smi_tx, smi_rx, freepin])]
-    fn send_out(cx: send_out::Context, mut hr: HostRequest<Clean>) {
+    // Pushes a SlaveResponse<NotReady> to process queue, that PIO_IRQ will build when response is gotten from state machine  
+    #[task(priority = 3, local = [producer, host_consumer], shared = [serial, smi_master, smi_tx, smi_rx, freepin])]
+    fn send_out(cx: send_out::Context) {
 
         let freepin = cx.shared.freepin;
         let smi_tx = cx.shared.smi_tx;
         let smi_rx = cx.shared.smi_rx;
         let smi_master = cx.shared.smi_master;
-        (freepin, smi_tx, smi_rx, smi_master).lock(|freepin, smi_tx, smi_rx, smi_master| {
-        match hr.interface {
-            // For each additional supported interface, add another match arm that sends to the interface
-            // Take handle of its TX FIFO and send payload word by word according to the size
-            ValidInterfaces::SMI => {
-                // Send 32 bit word of for either read or write to SMI TX FIFO
-                smi_tx.write(hr.payload[0]);
-                smi_rx.read(); // for now we will empty the RX FIFO
-            }
-            ValidInterfaces::Config => {
-                if hr.operation == ValidOps::SmiSet {
-                    if hr.payload[0] == 25 {
-                            smi_master.set_clock_divisor(4.56640625);
-                            // smi_master.clock_divisor_fixed_point(4, 145);
+        let serial = cx.shared.serial; 
+        let mut return_string = "\n\r->";
+        match cx.local.host_consumer.dequeue()  {
+            Some(hr) => {
+                (freepin, smi_tx, smi_rx, smi_master, serial).lock(|freepin, smi_tx, smi_rx, smi_master, serial| {
+                match hr.interface {
+                    // For each additional supported interface, add another match arm that sends to the interface
+                    // Take handle of its TX FIFO and send payload word by word according to the size
+                    ValidInterfaces::SMI => {
+                        // Send 32 bit word of for either read or write to SMI TX FIFO
+                        smi_tx.write(hr.payload[0]);
+                        smi_rx.read(); // for now we will empty the RX FIFO
                     }
-                    else if hr.payload[0] == 10 {
-                        smi_master.clock_divisor_fixed_point(1, 145);
+                    ValidInterfaces::Config => {
+                        if hr.operation == ValidOps::SmiSet {
+                            if hr.payload[0] == 25 {
+                                    smi_master.set_clock_divisor(4.56640625);
+                                    // smi_master.clock_divisor_fixed_point(4, 145);
+                                    return_string = "\n\rSMI Clock Rate Set 2.5Mhz\n\r->";
+                            }
+                            else if hr.payload[0] == 10 {
+                                smi_master.clock_divisor_fixed_point(1, 145);
+                                return_string = "\n\rSMI Clock Rate Set 10Mhz\n\r->";
+                            }
+                            else {smi_master.clock_divisor_fixed_point(hr.payload[0] as u16, 0);}
+                        }
                     }
-                    else {smi_master.clock_divisor_fixed_point(hr.payload[0] as u16, 0);}
-                }
-            }
-            ValidInterfaces::GPIO => {
+                    ValidInterfaces::GPIO => {
 
-                    if hr.payload[0] != 0 {freepin.set_high().unwrap();}
-                    else {freepin.set_low().unwrap();}
-                    // We do not do slave response on set/config commands
+                            if hr.payload[0] != 0 {freepin.set_high().unwrap();}
+                            else {freepin.set_low().unwrap();}
+                            // We do not do slave response on set/config commands
+                    }
+                    _ => {}
+                }
+                write_serial(serial, return_string, false);
+                });
             }
-            _ => {}
-        }
-        });
-        // Exchange our Host Request for slave response that needs to be ready
-        //let slave_response = hr.exchange_for_slave_response();
-        //match slave_response {
-        //    Ok(val) => {
-                // enqueue our new slave response
-        //        cx.local.producer.enqueue(val).unwrap();
-         //   }
-         //   Err(_err) => {
-                // This should never happen
-        //   }
-        //}
+
+            None => {}
+            // Exchange our Host Request for slave response that needs to be ready
+            //let slave_response = hr.exchange_for_slave_response();
+            //match slave_response {
+            //    Ok(val) => {
+                    // enqueue our new slave response
+            //        cx.local.producer.enqueue(val).unwrap();
+            //   }
+            //   Err(_err) => {
+                    // This should never happen
+            //   }
+            //}
+            }
     }
 
     // Hardware task associated with PIO0_IRQ_0

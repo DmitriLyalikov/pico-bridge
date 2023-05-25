@@ -95,15 +95,16 @@
         [0_u16 ; 9] ; let(mut spi_tx_producer, spi_tx_consumer) =
         c.local.spi_q.split() ; spi_tx_producer.enqueue([0_u8 ; 18]).unwrap()
         ; let(producer, consumer) = c.local.q.split() ;
+        let(host_producer, host_consumer) = c.local.host_q.split() ;
         c.core.SCB.set_sleepdeep() ;
         (Shared
         {
             serial, usb_dev, pio0, smi_master, smi_tx, smi_rx, serial_buf,
-            _spi_tx_buf, freepin,
+            _spi_tx_buf, host_producer, freepin,
         }, Local
         {
             spi_dev : spi_dev, _uart_dev : uart, spi_tx_producer,
-            spi_tx_consumer, producer, consumer,
+            spi_tx_consumer, host_consumer, producer, consumer,
         }, init :: Monotonics(),)
     } #[doc = " User provided idle function"] #[allow(non_snake_case)] fn
     idle(_cx : idle :: Context) ->!
@@ -121,8 +122,10 @@
         use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let
         usb_dev = cx.shared.usb_dev ; let serial = cx.shared.serial ; let
         serial_buf = cx.shared.serial_buf ; let freepin = cx.shared.freepin ;
-        (usb_dev, serial, serial_buf,
-        freepin).lock(| usb_dev_a, serial_a, serial_buf, freepin |
+        let host_producer = cx.shared.host_producer ;
+        (usb_dev, serial, serial_buf, freepin,
+        host_producer).lock(| usb_dev_a, serial_a, serial_buf, freepin,
+        host_producer |
         {
             if usb_dev_a.poll(& mut [serial_a])
             {
@@ -151,7 +154,7 @@
                                         let clean = hr.init_clean() ; match clean
                                         {
                                             Ok(hr) =>
-                                            { freepin.set_low().unwrap() ; send_out :: spawn(hr) ; }
+                                            { host_producer.enqueue(hr) ; send_out :: spawn() ; }
                                             Err(err) => { write_serial(serial_a, err, false) ; }
                                         }
                                     } Err("Ok") => {} Err(err) =>
@@ -201,38 +204,50 @@
             })
         } else {}
     } #[doc = " User SW task send_out"] #[allow(non_snake_case)] fn
-    send_out(cx : send_out :: Context, mut hr : HostRequest < Clean >)
+    send_out(cx : send_out :: Context)
     {
         use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let
         freepin = cx.shared.freepin ; let smi_tx = cx.shared.smi_tx ; let
         smi_rx = cx.shared.smi_rx ; let smi_master = cx.shared.smi_master ;
-        (freepin, smi_tx, smi_rx,
-        smi_master).lock(| freepin, smi_tx, smi_rx, smi_master |
+        let serial = cx.shared.serial ; let mut return_string = "\n\r->" ;
+        match cx.local.host_consumer.dequeue()
         {
-            match hr.interface
+            Some(hr) =>
             {
-                ValidInterfaces :: SMI =>
-                { smi_tx.write(hr.payload [0]) ; smi_rx.read() ; }
-                ValidInterfaces :: Config =>
+                (freepin, smi_tx, smi_rx, smi_master,
+                serial).lock(| freepin, smi_tx, smi_rx, smi_master, serial |
                 {
-                    if hr.operation == ValidOps :: SmiSet
+                    match hr.interface
                     {
-                        if hr.payload [0] == 25
-                        { smi_master.set_clock_divisor(4.56640625) ; } else if
-                        hr.payload [0] == 10
-                        { smi_master.clock_divisor_fixed_point(1, 145) ; } else
+                        ValidInterfaces :: SMI =>
+                        { smi_tx.write(hr.payload [0]) ; smi_rx.read() ; }
+                        ValidInterfaces :: Config =>
                         {
-                            smi_master.clock_divisor_fixed_point(hr.payload [0] as u16,
-                            0) ;
-                        }
-                    }
-                } ValidInterfaces :: GPIO =>
-                {
-                    if hr.payload [0] != 0 { freepin.set_high().unwrap() ; }
-                    else { freepin.set_low().unwrap() ; }
-                } _ => {}
-            }
-        }) ;
+                            if hr.operation == ValidOps :: SmiSet
+                            {
+                                if hr.payload [0] == 25
+                                {
+                                    smi_master.set_clock_divisor(4.56640625) ; return_string =
+                                    "\n\rSMI Clock Rate Set 2.5Mhz\n\r->" ;
+                                } else if hr.payload [0] == 10
+                                {
+                                    smi_master.clock_divisor_fixed_point(1, 145) ; return_string
+                                    = "\n\rSMI Clock Rate Set 10Mhz\n\r->" ;
+                                } else
+                                {
+                                    smi_master.clock_divisor_fixed_point(hr.payload [0] as u16,
+                                    0) ;
+                                }
+                            }
+                        } ValidInterfaces :: GPIO =>
+                        {
+                            if hr.payload [0] != 0 { freepin.set_high().unwrap() ; }
+                            else { freepin.set_low().unwrap() ; }
+                        } _ => {}
+                    } write_serial(serial, return_string, false) ;
+                }) ;
+            } None => {}
+        }
     } #[doc = " User SW task respond_to_host"] #[allow(non_snake_case)] fn
     respond_to_host(cx : respond_to_host :: Context, sr : SlaveResponse <
     crate :: protocol :: slave :: Ready >)
@@ -244,7 +259,8 @@
         pio0 : hal :: pio :: PIO < pac :: PIO0 >, smi_master : hal :: pio ::
         StateMachine < (pac :: PIO0, SM0), hal :: pio :: Running >, smi_tx :
         hal :: pio :: Tx < (pac :: PIO0, SM0) >, smi_rx : hal :: pio :: Rx <
-        (pac :: PIO0, SM0) >, serial_buf : [u8 ; 64], _spi_tx_buf : [u16 ; 9],
+        (pac :: PIO0, SM0) >, serial_buf : [u8 ; 64], host_producer : Producer
+        < 'static, HostRequest < Clean >, 3 >, _spi_tx_buf : [u16 ; 9],
         freepin : Pin < Gpio25, hal :: gpio :: Output < hal :: gpio ::
         PushPull > >,
     } #[doc = " RTIC local resource struct"] struct Local
@@ -253,9 +269,10 @@
         _uart_dev : hal :: uart :: UartPeripheral < hal :: uart :: Enabled,
         pac :: UART0, (UartTx, UartRx) >, spi_tx_producer : Producer <
         'static, [u8 ; 18], 3 >, spi_tx_consumer : Consumer < 'static,
-        [u8 ; 18], 3 >, producer : Producer < 'static, SlaveResponse <
-        NotReady >, 3 >, consumer : Consumer < 'static, SlaveResponse <
-        NotReady >, 3 >,
+        [u8 ; 18], 3 >, host_consumer : Consumer < 'static, HostRequest <
+        Clean >, 3 >, producer : Producer < 'static, SlaveResponse < NotReady
+        >, 3 >, consumer : Consumer < 'static, SlaveResponse < NotReady >, 3
+        >,
     } #[allow(non_snake_case)] #[allow(non_camel_case_types)]
     #[doc = " Local resources `init` has access to"] pub struct
     __rtic_internal_initLocalResources < >
@@ -265,6 +282,8 @@
         >, #[doc = " Local resource `spi_q`"] pub spi_q : & 'static mut Queue
         < [u8 ; 18], 3 >, #[doc = " Local resource `q`"] pub q : & 'static mut
         Queue < SlaveResponse < NotReady >, 3 >,
+        #[doc = " Local resource `host_q`"] pub host_q : & 'static mut Queue <
+        HostRequest < Clean >, 3 >,
     } #[doc = r" Monotonics used by the system"] #[allow(non_snake_case)]
     #[allow(non_camel_case_types)] pub struct __rtic_internal_Monotonics() ;
     #[doc = r" Execution context"] #[allow(non_snake_case)]
@@ -369,6 +388,15 @@
             #[inline(always)] pub unsafe fn priority(& self) -> & Priority
             { self.priority }
         } #[doc(hidden)] #[allow(non_camel_case_types)] pub struct
+        host_producer_that_needs_to_be_locked < 'a >
+        { priority : & 'a Priority, } impl < 'a >
+        host_producer_that_needs_to_be_locked < 'a >
+        {
+            #[inline(always)] pub unsafe fn new(priority : & 'a Priority) ->
+            Self { host_producer_that_needs_to_be_locked { priority } }
+            #[inline(always)] pub unsafe fn priority(& self) -> & Priority
+            { self.priority }
+        } #[doc(hidden)] #[allow(non_camel_case_types)] pub struct
         freepin_that_needs_to_be_locked < 'a > { priority : & 'a Priority, }
         impl < 'a > freepin_that_needs_to_be_locked < 'a >
         {
@@ -439,6 +467,10 @@
         " Resource proxy resource `freepin`. Use method `.lock()` to gain access"]
         pub freepin : shared_resources :: freepin_that_needs_to_be_locked < 'a
         >,
+        #[doc =
+        " Resource proxy resource `host_producer`. Use method `.lock()` to gain access"]
+        pub host_producer : shared_resources ::
+        host_producer_that_needs_to_be_locked < 'a >,
     } #[doc = r" Execution context"] #[allow(non_snake_case)]
     #[allow(non_camel_case_types)] pub struct __rtic_internal_usb_rx_Context <
     'a >
@@ -512,6 +544,8 @@
     {
         #[doc = " Local resource `producer`"] pub producer : & 'a mut Producer
         < 'static, SlaveResponse < NotReady >, 3 >,
+        #[doc = " Local resource `host_consumer`"] pub host_consumer : & 'a
+        mut Consumer < 'static, HostRequest < Clean >, 3 >,
     } #[allow(non_snake_case)] #[allow(non_camel_case_types)]
     #[doc = " Shared resources `send_out` has access to"] pub struct
     __rtic_internal_send_outSharedResources < 'a >
@@ -556,10 +590,9 @@
             }
         }
     } #[doc = r" Spawns the task directly"] pub fn
-    __rtic_internal_send_out_spawn(_0 : HostRequest < Clean >,) -> Result <
-    (), HostRequest < Clean > >
+    __rtic_internal_send_out_spawn() -> Result < (), () >
     {
-        let input = _0 ; unsafe
+        let input = () ; unsafe
         {
             if let Some(index) = rtic :: export :: interrupt ::
             free(| _ |
@@ -662,7 +695,8 @@
                 usb_bus : & mut *
                 __rtic_internal_local_init_usb_bus.get_mut(), spi_q : & mut *
                 __rtic_internal_local_init_spi_q.get_mut(), q : & mut *
-                __rtic_internal_local_init_q.get_mut(),
+                __rtic_internal_local_init_q.get_mut(), host_q : & mut *
+                __rtic_internal_local_init_host_q.get_mut(),
             }
         }
     } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
@@ -813,11 +847,33 @@
         }
     } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] #[link_section = ".uninit.rtic7"] static
+    __rtic_internal_shared_resource_host_producer : rtic :: RacyCell < core ::
+    mem :: MaybeUninit < Producer < 'static, HostRequest < Clean >, 3 > >> =
+    rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ; impl <
+    'a > rtic :: Mutex for shared_resources ::
+    host_producer_that_needs_to_be_locked < 'a >
+    {
+        type T = Producer < 'static, HostRequest < Clean >, 3 > ;
+        #[inline(always)] fn lock < RTIC_INTERNAL_R >
+        (& mut self, f : impl
+        FnOnce(& mut Producer < 'static, HostRequest < Clean >, 3 >) ->
+        RTIC_INTERNAL_R) -> RTIC_INTERNAL_R
+        {
+            #[doc = r" Priority ceiling"] const CEILING : u8 = 3u8 ; unsafe
+            {
+                rtic :: export ::
+                lock(__rtic_internal_shared_resource_host_producer.get_mut()
+                as * mut _, self.priority(), CEILING, rp_pico :: pac ::
+                NVIC_PRIO_BITS, & __rtic_internal_MASKS, f,)
+            }
+        }
+    } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
+    #[doc(hidden)] #[link_section = ".uninit.rtic8"] static
     __rtic_internal_shared_resource__spi_tx_buf : rtic :: RacyCell < core ::
     mem :: MaybeUninit < [u16 ; 9] >> = rtic :: RacyCell ::
     new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic8"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic9"] static
     __rtic_internal_shared_resource_freepin : rtic :: RacyCell < core :: mem
     :: MaybeUninit < Pin < Gpio25, hal :: gpio :: Output < hal :: gpio ::
     PushPull > > >> = rtic :: RacyCell ::
@@ -853,33 +909,38 @@
     :: pac :: Interrupt :: USBCTRL_IRQ as u32, rp_pico :: pac :: Interrupt ::
     PIO0_IRQ_0 as u32])] ; #[allow(non_camel_case_types)]
     #[allow(non_upper_case_globals)] #[doc(hidden)]
-    #[link_section = ".uninit.rtic9"] static
+    #[link_section = ".uninit.rtic10"] static
     __rtic_internal_local_resource_spi_dev : rtic :: RacyCell < core :: mem ::
     MaybeUninit < hal :: Spi < hal :: spi :: Enabled, pac :: SPI0, 8 > >> =
     rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic10"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic11"] static
     __rtic_internal_local_resource__uart_dev : rtic :: RacyCell < core :: mem
     :: MaybeUninit < hal :: uart :: UartPeripheral < hal :: uart :: Enabled,
     pac :: UART0, (UartTx, UartRx) > >> = rtic :: RacyCell ::
     new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic11"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic12"] static
     __rtic_internal_local_resource_spi_tx_producer : rtic :: RacyCell < core
     :: mem :: MaybeUninit < Producer < 'static, [u8 ; 18], 3 > >> = rtic ::
     RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic12"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic13"] static
     __rtic_internal_local_resource_spi_tx_consumer : rtic :: RacyCell < core
     :: mem :: MaybeUninit < Consumer < 'static, [u8 ; 18], 3 > >> = rtic ::
     RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic13"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic14"] static
+    __rtic_internal_local_resource_host_consumer : rtic :: RacyCell < core ::
+    mem :: MaybeUninit < Consumer < 'static, HostRequest < Clean >, 3 > >> =
+    rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
+    #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
+    #[doc(hidden)] #[link_section = ".uninit.rtic15"] static
     __rtic_internal_local_resource_producer : rtic :: RacyCell < core :: mem
     :: MaybeUninit < Producer < 'static, SlaveResponse < NotReady >, 3 > >> =
     rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
-    #[doc(hidden)] #[link_section = ".uninit.rtic14"] static
+    #[doc(hidden)] #[link_section = ".uninit.rtic16"] static
     __rtic_internal_local_resource_consumer : rtic :: RacyCell < core :: mem
     :: MaybeUninit < Consumer < 'static, SlaveResponse < NotReady >, 3 > >> =
     rtic :: RacyCell :: new(core :: mem :: MaybeUninit :: uninit()) ;
@@ -893,7 +954,11 @@
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_local_init_q : rtic :: RacyCell <
     Queue < SlaveResponse < NotReady >, 3 > > = rtic :: RacyCell ::
-    new(Queue :: new()) ; #[allow(non_snake_case)] #[no_mangle]
+    new(Queue :: new()) ; #[allow(non_camel_case_types)]
+    #[allow(non_upper_case_globals)] #[doc(hidden)] static
+    __rtic_internal_local_init_host_q : rtic :: RacyCell < Queue < HostRequest
+    < Clean >, 3 > > = rtic :: RacyCell :: new(Queue :: new()) ;
+    #[allow(non_snake_case)] #[no_mangle]
     #[doc = " User HW task ISR trampoline for spi0"] #[inline(never)]
     #[link_section = ".data.bar"] unsafe fn SPI0_IRQ()
     {
@@ -953,6 +1018,8 @@
                 serial_buf_that_needs_to_be_locked :: new(priority),
                 #[doc(hidden)] freepin : shared_resources ::
                 freepin_that_needs_to_be_locked :: new(priority),
+                #[doc(hidden)] host_producer : shared_resources ::
+                host_producer_that_needs_to_be_locked :: new(priority),
             }
         }
     } #[allow(non_snake_case)] #[no_mangle]
@@ -994,11 +1061,11 @@
     } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_send_out_FQ : rtic :: RacyCell <
     rtic :: export :: SCFQ < 2 > > = rtic :: RacyCell ::
-    new(rtic :: export :: Queue :: new()) ; #[link_section = ".uninit.rtic15"]
+    new(rtic :: export :: Queue :: new()) ; #[link_section = ".uninit.rtic17"]
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_send_out_INPUTS : rtic :: RacyCell <
-    [core :: mem :: MaybeUninit < HostRequest < Clean > > ; 1] > = rtic ::
-    RacyCell :: new([core :: mem :: MaybeUninit :: uninit(),]) ; impl < 'a >
+    [core :: mem :: MaybeUninit < () > ; 1] > = rtic :: RacyCell ::
+    new([core :: mem :: MaybeUninit :: uninit(),]) ; impl < 'a >
     __rtic_internal_send_outLocalResources < 'a >
     {
         #[inline(always)] #[doc(hidden)] pub unsafe fn new() -> Self
@@ -1008,6 +1075,9 @@
                 producer : & mut *
                 (& mut *
                 __rtic_internal_local_resource_producer.get_mut()).as_mut_ptr(),
+                host_consumer : & mut *
+                (& mut *
+                __rtic_internal_local_resource_host_consumer.get_mut()).as_mut_ptr(),
             }
         }
     } impl < 'a > __rtic_internal_send_outSharedResources < 'a >
@@ -1032,7 +1102,7 @@
     } #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_respond_to_host_FQ : rtic ::
     RacyCell < rtic :: export :: SCFQ < 2 > > = rtic :: RacyCell ::
-    new(rtic :: export :: Queue :: new()) ; #[link_section = ".uninit.rtic16"]
+    new(rtic :: export :: Queue :: new()) ; #[link_section = ".uninit.rtic18"]
     #[allow(non_camel_case_types)] #[allow(non_upper_case_globals)]
     #[doc(hidden)] static __rtic_internal_respond_to_host_INPUTS : rtic ::
     RacyCell <
@@ -1094,7 +1164,7 @@
                         _0)
                     } P3_T :: send_out =>
                     {
-                        let _0 =
+                        let() =
                         (& *
                         __rtic_internal_send_out_INPUTS.get()).get_unchecked(usize
                         :: from(index)).as_ptr().read() ;
@@ -1102,7 +1172,7 @@
                         __rtic_internal_send_out_FQ.get_mut()).split().0.enqueue_unchecked(index)
                         ; let priority = & rtic :: export :: Priority ::
                         new(PRIORITY) ;
-                        send_out(send_out :: Context :: new(priority), _0)
+                        send_out(send_out :: Context :: new(priority))
                     }
                 }
             }
@@ -1121,19 +1191,21 @@
             (pac :: PIO0, SM0) > > () ; rtic :: export :: assert_send :: < hal
             :: pio :: Rx < (pac :: PIO0, SM0) > > () ; rtic :: export ::
             assert_send :: < [u8 ; 64] > () ; rtic :: export :: assert_send ::
-            < Pin < Gpio25, hal :: gpio :: Output < hal :: gpio :: PushPull >
-            > > () ; rtic :: export :: assert_send :: < hal :: Spi < hal ::
-            spi :: Enabled, pac :: SPI0, 8 > > () ; rtic :: export ::
-            assert_send :: < hal :: uart :: UartPeripheral < hal :: uart ::
-            Enabled, pac :: UART0, (UartTx, UartRx) > > () ; rtic :: export ::
-            assert_send :: < Producer < 'static, [u8 ; 18], 3 > > () ; rtic ::
-            export :: assert_send :: < Consumer < 'static, [u8 ; 18], 3 > > ()
-            ; rtic :: export :: assert_send :: < Producer < 'static,
+            < Producer < 'static, HostRequest < Clean >, 3 > > () ; rtic ::
+            export :: assert_send :: < Pin < Gpio25, hal :: gpio :: Output <
+            hal :: gpio :: PushPull > > > () ; rtic :: export :: assert_send
+            :: < hal :: Spi < hal :: spi :: Enabled, pac :: SPI0, 8 > > () ;
+            rtic :: export :: assert_send :: < hal :: uart :: UartPeripheral <
+            hal :: uart :: Enabled, pac :: UART0, (UartTx, UartRx) > > () ;
+            rtic :: export :: assert_send :: < Producer < 'static, [u8 ; 18],
+            3 > > () ; rtic :: export :: assert_send :: < Consumer < 'static,
+            [u8 ; 18], 3 > > () ; rtic :: export :: assert_send :: < Consumer
+            < 'static, HostRequest < Clean >, 3 > > () ; rtic :: export ::
+            assert_send :: < Producer < 'static, SlaveResponse < NotReady >, 3
+            > > () ; rtic :: export :: assert_send :: < Consumer < 'static,
             SlaveResponse < NotReady >, 3 > > () ; rtic :: export ::
-            assert_send :: < Consumer < 'static, SlaveResponse < NotReady >, 3
-            > > () ; rtic :: export :: assert_send :: < HostRequest < Clean >
-            > () ; rtic :: export :: assert_send :: < SlaveResponse < crate ::
-            protocol :: slave :: Ready > > () ; const _CONST_CHECK : () =
+            assert_send :: < SlaveResponse < crate :: protocol :: slave ::
+            Ready > > () ; const _CONST_CHECK : () =
             {
                 if! rtic :: export :: have_basepri()
                 {
@@ -1238,6 +1310,9 @@
                 mem :: MaybeUninit :: new(shared_resources.smi_rx)) ;
                 __rtic_internal_shared_resource_serial_buf.get_mut().write(core
                 :: mem :: MaybeUninit :: new(shared_resources.serial_buf)) ;
+                __rtic_internal_shared_resource_host_producer.get_mut().write(core
+                :: mem :: MaybeUninit :: new(shared_resources.host_producer))
+                ;
                 __rtic_internal_shared_resource_freepin.get_mut().write(core
                 :: mem :: MaybeUninit :: new(shared_resources.freepin)) ;
                 __rtic_internal_local_resource_spi_dev.get_mut().write(core ::
@@ -1248,6 +1323,8 @@
                 __rtic_internal_local_resource_spi_tx_consumer.get_mut().write(core
                 :: mem :: MaybeUninit :: new(local_resources.spi_tx_consumer))
                 ;
+                __rtic_internal_local_resource_host_consumer.get_mut().write(core
+                :: mem :: MaybeUninit :: new(local_resources.host_consumer)) ;
                 __rtic_internal_local_resource_producer.get_mut().write(core
                 :: mem :: MaybeUninit :: new(local_resources.producer)) ;
                 __rtic_internal_local_resource_consumer.get_mut().write(core

@@ -49,7 +49,7 @@ pub mod host {
     impl State for Unclean {}
     impl State for Clean {}
 
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Debug)]
     pub enum ValidOps  {
         None,
         Read,
@@ -73,7 +73,8 @@ pub mod host {
             }
         }
     }
-
+    
+    #[derive(Debug)]
     pub enum ValidInterfaces  {
         None,
         SMI,
@@ -101,7 +102,7 @@ pub mod host {
             }
         }
     }
-
+    #[derive(Debug)]
     pub struct HostRequest<S: State> {
         state: PhantomData<S>,
         proc_id: u8,
