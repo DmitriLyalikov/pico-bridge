@@ -535,7 +535,14 @@ mod app {
                     match slave_response {
                         Ok(val) => {
                             // enqueue our new slave response
-                            // producer.enqueue(val).unwrap();
+                            match producer.enqueue(val) {
+                                Ok(sr) => {
+
+                                }
+                                Err(err) => {
+                                    write_serial(serial, "Consumer queue is full", false);
+                                }
+                            }
                         }
                         Err(_err) => {
                         // This should never happen

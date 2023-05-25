@@ -259,7 +259,17 @@
                     slave_response
                     {
                         let slave_response = hr.exchange_for_slave_response() ;
-                        match slave_response { Ok(val) => {} Err(_err) => {} }
+                        match slave_response
+                        {
+                            Ok(val) =>
+                            {
+                                match producer.enqueue(val)
+                                {
+                                    Ok(sr) => {} Err(err) =>
+                                    { write_serial(serial, "Consumer queue is full", false) ; }
+                                }
+                            } Err(_err) => {}
+                        }
                     }
                 }) ;
             } None => {}
