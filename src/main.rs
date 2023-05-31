@@ -47,8 +47,8 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const SMI_DEFAULT_CLKDIV: u16 = 4; // (133000000 / 2500000)
-    const PIO_CLK_DIV_FRAQ: u8 = 145;
+    const SMI_DEFAULT_CLKDIV: u16 =  4; // (133000000 / 2500000)
+    const PIO_CLK_DIV_FRAQ: u8 =  145;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -561,12 +561,15 @@ mod app {
     #[task(binds = PIO0_IRQ_0, priority = 3, shared = [serial, pio0, smi_rx], local = [consumer])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
         // All statemachines implement IRQ flags, of which the first 0-3 LSB 
-        
+        let mut serial = cx.shared.serial;
+        (serial).lock(|serial| {
+            write_serial(serial, "fired", false);
+        });
         if let Some(mut slave_response) = cx.local.consumer.dequeue() {
 
             let pio0 = cx.shared.pio0;
             let rx = cx.shared.smi_rx;
-            let serial = cx.shared.serial;
+            // let serial = cx.shared.serial;
 
             // Eventually lock all implemented state machines and rx fifos
             (pio0, rx, serial).lock(

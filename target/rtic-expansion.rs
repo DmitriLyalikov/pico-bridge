@@ -187,11 +187,12 @@
     } #[doc = " User HW task: pio_sm_rx"] #[allow(non_snake_case)] fn
     pio_sm_rx(cx : pio_sm_rx :: Context)
     {
-        use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; if let
-        Some(mut slave_response) = cx.local.consumer.dequeue()
+        use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let mut
+        serial = cx.shared.serial ;
+        (serial).lock(| serial | { write_serial(serial, "fired", false) ; }) ;
+        if let Some(mut slave_response) = cx.local.consumer.dequeue()
         {
-            let pio0 = cx.shared.pio0 ; let rx = cx.shared.smi_rx ; let serial
-            = cx.shared.serial ;
+            let pio0 = cx.shared.pio0 ; let rx = cx.shared.smi_rx ;
             (pio0, rx,
             serial).lock(| pio0, rx_a, serial, |
             {
