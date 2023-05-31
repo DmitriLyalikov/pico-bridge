@@ -49,7 +49,7 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const SMI_DEFAULT_CLKDIV: u16 =  2;//4; // (133000000 / 2500000)
+    const SMI_DEFAULT_CLKDIV: u16 =  1;//4; // (133000000 / 2500000)
     const PIO_CLK_DIV_FRAQ: u8 =  1;//145;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
@@ -135,9 +135,9 @@ mod app {
         // Finally we ÷2 on the second post divider to give 151.2 Mhz
         //
         let pll_sys = hal::pll::setup_pll_blocking(c.device.PLL_SYS,  xosc.operating_frequency(), hal::pll::PLLConfig {
-                vco_freq: HertzU32::MHz(950),
+                vco_freq: HertzU32::MHz(944),
                 refdiv: 1,
-                post_div1: 3,
+                post_div1: 2,
                 post_div2: 2,
             }, &mut clocks,
             &mut c.device.RESETS,

@@ -20,7 +20,7 @@
         { NotReady, SlaveResponse }
     } ; use core :: str ; #[doc = r" User code from within the module"]
     #[doc = " Clock divider for the PIO SM"] const SMI_DEFAULT_CLKDIV : u16 =
-    2 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ; type UartTx = Pin < Gpio0,
+    1 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ; type UartTx = Pin < Gpio0,
     FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
@@ -42,7 +42,7 @@
         setup_pll_blocking(c.device.PLL_SYS, xosc.operating_frequency(), hal
         :: pll :: PLLConfig
         {
-            vco_freq : HertzU32 :: MHz(950), refdiv : 1, post_div1 : 3,
+            vco_freq : HertzU32 :: MHz(944), refdiv : 1, post_div1 : 2,
             post_div2 : 2,
         }, & mut clocks, & mut
         c.device.RESETS,).map_err(| _x | false).unwrap() ; let pll_usb = hal
