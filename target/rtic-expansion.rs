@@ -4,9 +4,9 @@
     r" Always include the device crate which contains the vector table"] use
     rp_pico :: pac as
     you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml ; use
-    embedded_hal :: digital :: v2 :: OutputPin ; use rp_pico :: hal as hal ;
-    use rp_pico :: pac ; use heapless :: spsc :: { Consumer, Producer, Queue }
-    ; use hal ::
+    embedded_hal :: digital :: v2 :: OutputPin ; use fugit :: HertzU32 ; use
+    rp_pico :: XOSC_CRYSTAL_FREQ ; use rp_pico :: hal as hal ; use rp_pico ::
+    pac ; use heapless :: spsc :: { Consumer, Producer, Queue } ; use hal ::
     {
         clocks :: Clock, uart :: { UartConfig, DataBits, StopBits }, gpio ::
         { pin :: bank0 :: *, Pin, FunctionUart }, pio ::
@@ -20,7 +20,7 @@
         { NotReady, SlaveResponse }
     } ; use core :: str ; #[doc = r" User code from within the module"]
     #[doc = " Clock divider for the PIO SM"] const SMI_DEFAULT_CLKDIV : u16 =
-    4 ; const PIO_CLK_DIV_FRAQ : u8 = 145 ; type UartTx = Pin < Gpio0,
+    2 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ; type UartTx = Pin < Gpio0,
     FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
@@ -30,12 +30,30 @@
     #[allow(non_snake_case)] fn init(mut c : init :: Context) ->
     (Shared, Local, init :: Monotonics)
     {
-        let mut resets = c.device.RESETS ; let mut watchdog = hal :: watchdog
-        :: Watchdog :: new(c.device.WATCHDOG) ; let clocks = hal :: clocks ::
-        init_clocks_and_plls(XTAL_FREQ_HZ, c.device.XOSC, c.device.CLOCKS,
-        c.device.PLL_SYS, c.device.PLL_USB, & mut resets, & mut
-        watchdog,).ok().unwrap() ; let sio = hal :: Sio :: new(c.device.SIO) ;
-        let pins = hal :: gpio :: Pins ::
+        let mut watchdog = hal :: watchdog :: Watchdog ::
+        new(c.device.WATCHDOG) ;
+        c.device.VREG_AND_CHIP_RESET.vreg.write(| w | unsafe
+        { w.vsel().bits(14) }) ; let xosc = hal :: xosc ::
+        setup_xosc_blocking(c.device.XOSC, rp_pico ::
+        XOSC_CRYSTAL_FREQ.Hz()).map_err(| _x | false).unwrap() ;
+        watchdog.enable_tick_generation((XOSC_CRYSTAL_FREQ / 1_000_000) as u8)
+        ; let mut clocks = hal :: clocks :: ClocksManager ::
+        new(c.device.CLOCKS) ; let pll_sys = hal :: pll ::
+        setup_pll_blocking(c.device.PLL_SYS, xosc.operating_frequency(), hal
+        :: pll :: PLLConfig
+        {
+            vco_freq : HertzU32 :: MHz(950), refdiv : 1, post_div1 : 3,
+            post_div2 : 2,
+        }, & mut clocks, & mut
+        c.device.RESETS,).map_err(| _x | false).unwrap() ; let pll_usb = hal
+        :: pll ::
+        setup_pll_blocking(c.device.PLL_USB, xosc.operating_frequency(), hal
+        :: pll :: common_configs :: PLL_USB_48MHZ, & mut clocks, & mut
+        c.device.RESETS,).map_err(| _x | false).unwrap() ;
+        clocks.init_default(& xosc, & pll_sys, &
+        pll_usb).map_err(| _x | false).unwrap() ; let mut resets =
+        c.device.RESETS ; let sio = hal :: Sio :: new(c.device.SIO) ; let pins
+        = hal :: gpio :: Pins ::
         new(c.device.IO_BANK0, c.device.PADS_BANK0, sio.gpio_bank0, & mut
         resets,) ; let freepin = pins.gpio25.into_push_pull_output() ; let
         _spi_sclk = pins.gpio18.into_mode :: < hal :: gpio :: FunctionSpi > ()

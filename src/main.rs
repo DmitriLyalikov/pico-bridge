@@ -21,6 +21,8 @@ mod protocol;
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP])]
 mod app {
     use embedded_hal::digital::v2::OutputPin;
+    use fugit::HertzU32;
+    use rp_pico::XOSC_CRYSTAL_FREQ;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -47,8 +49,8 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const SMI_DEFAULT_CLKDIV: u16 =  4; // (133000000 / 2500000)
-    const PIO_CLK_DIV_FRAQ: u8 =  145;
+    const SMI_DEFAULT_CLKDIV: u16 =  2;//4; // (133000000 / 2500000)
+    const PIO_CLK_DIV_FRAQ: u8 =  1;//145;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -104,9 +106,64 @@ mod app {
     fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
         //*******
         // Initialization of the system clock.
-        let mut resets = c.device.RESETS;
         let mut watchdog = hal::watchdog::Watchdog::new(c.device.WATCHDOG);
+        
+        // Try to set VREG to DVDD to 1.25V
+        c.device.VREG_AND_CHIP_RESET.vreg.write(|w| unsafe {
+            w.vsel().bits(14)
+        });
 
+        // Step 1. Turn on the crystal.
+	    let xosc = hal::xosc::setup_xosc_blocking(c.device.XOSC, rp_pico::XOSC_CRYSTAL_FREQ.Hz())
+            .map_err(|_x| false)
+            .unwrap();
+
+        // Step 2. Configure the watchdog tick generation to tick over every microsecond
+        watchdog.enable_tick_generation((XOSC_CRYSTAL_FREQ / 1_000_000) as u8);
+
+        // Step 3. Create a clocks manager
+        let mut clocks = hal::clocks::ClocksManager::new(c.device.CLOCKS);
+
+        // Step 4. Set up the system PLL 
+        // 
+        // Take the Crystal Oscillator  (=12Mhz) with no divider, and x126 to 
+        // give a FOUTVCO of 1512 MHz. This must be in range 750 Mhz - 1600 Mhz
+        // THe factor of 126 is calcuated automatically given the desired FOUTVCO
+        //
+        // Next we ÷5 on the first post divider to give 302.4 MHz
+        //
+        // Finally we ÷2 on the second post divider to give 151.2 Mhz
+        //
+        let pll_sys = hal::pll::setup_pll_blocking(c.device.PLL_SYS,  xosc.operating_frequency(), hal::pll::PLLConfig {
+                vco_freq: HertzU32::MHz(950),
+                refdiv: 1,
+                post_div1: 3,
+                post_div2: 2,
+            }, &mut clocks,
+            &mut c.device.RESETS,
+        )
+        .map_err(|_x| false)
+        .unwrap();
+
+        // Step 5. Set up a 48 Mhz PLL for the USB system
+        	// Step 5. Set up a 48 MHz PLL for the USB system.
+	let pll_usb = hal::pll::setup_pll_blocking(
+		c.device.PLL_USB,
+		xosc.operating_frequency(),
+		hal::pll::common_configs::PLL_USB_48MHZ,
+		&mut clocks,
+		&mut c.device.RESETS,
+	)
+	.map_err(|_x| false)
+	.unwrap();
+
+    // Step 6. Set the system to run from the PLLs we just configured
+    clocks  
+        .init_default(&xosc, &pll_sys, &pll_usb)
+        .map_err(|_x| false)
+        .unwrap();
+
+        /* 
         // Configure the clocks
         let clocks = hal::clocks::init_clocks_and_plls(
             XTAL_FREQ_HZ,
@@ -119,7 +176,8 @@ mod app {
         )
         .ok()
         .unwrap();
-
+        */
+        let mut resets = c.device.RESETS;
         // The single-cycle I/O block controls our GPIO pins
         let sio = hal::Sio::new(c.device.SIO);
 
