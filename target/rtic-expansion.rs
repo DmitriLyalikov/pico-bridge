@@ -4,13 +4,14 @@
     r" Always include the device crate which contains the vector table"] use
     rp_pico :: pac as
     you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml ; use
-    embedded_hal :: digital :: v2 :: OutputPin ; use fugit :: HertzU32 ; use
-    rp_pico :: XOSC_CRYSTAL_FREQ ; use rp_pico :: hal as hal ; use rp_pico ::
-    pac ; use heapless :: spsc :: { Consumer, Producer, Queue } ; use hal ::
+    embedded_hal :: digital :: v2 :: OutputPin ; use embedded_hal :: blocking
+    :: spi :: Write ; use fugit :: HertzU32 ; use rp_pico :: XOSC_CRYSTAL_FREQ
+    ; use rp_pico :: hal as hal ; use rp_pico :: pac ; use heapless :: spsc ::
+    { Consumer, Producer, Queue } ; use hal ::
     {
         clocks :: Clock, uart :: { UartConfig, DataBits, StopBits }, gpio ::
         { pin :: bank0 :: *, Pin, FunctionUart }, pio ::
-        { PIOExt, ShiftDirection, PIOBuilder, SM0, PinDir, }
+        { PIOExt, ShiftDirection, PIOBuilder, SM0, PinDir, },
     } ; use usb_device :: { class_prelude :: *, prelude :: * } ; use
     usbd_serial :: SerialPort ; use fugit :: RateExtU32 ; use crate :: serial
     :: { match_usb_serial_buf, write_serial } ; use crate :: protocol ::
@@ -42,7 +43,7 @@
         setup_pll_blocking(c.device.PLL_SYS, xosc.operating_frequency(), hal
         :: pll :: PLLConfig
         {
-            vco_freq : HertzU32 :: MHz(944), refdiv : 1, post_div1 : 2,
+            vco_freq : HertzU32 :: MHz(800), refdiv : 1, post_div1 : 3,
             post_div2 : 2,
         }, & mut clocks, & mut
         c.device.RESETS,).map_err(| _x | false).unwrap() ; let pll_usb = hal
@@ -56,14 +57,14 @@
         = hal :: gpio :: Pins ::
         new(c.device.IO_BANK0, c.device.PADS_BANK0, sio.gpio_bank0, & mut
         resets,) ; let freepin = pins.gpio25.into_push_pull_output() ; let
-        _spi_sclk = pins.gpio18.into_mode :: < hal :: gpio :: FunctionSpi > ()
-        ; let _spi_mosi = pins.gpio17.into_mode :: < hal :: gpio ::
-        FunctionSpi > () ; let _spi_miso = pins.gpio16.into_mode :: < hal ::
-        gpio :: FunctionSpi > () ; let _spi_cs = pins.gpio19.into_mode :: <
-        hal :: gpio :: FunctionSpi > () ; let spi = hal :: Spi :: < _, _, 8 >
-        :: new(c.device.SPI0) ; let spi_dev =
-        spi.init_slave(& mut resets, & embedded_hal :: spi :: MODE_3) ; let
-        uart_pins =
+        spi_sclk = pins.gpio4.into_mode :: < hal :: gpio :: FunctionSpi > () ;
+        let spi_mosi = pins.gpio5.into_mode :: < hal :: gpio :: FunctionSpi >
+        () ; let spi_miso = pins.gpio6.into_mode :: < hal :: gpio ::
+        FunctionSpi > () ; let spi_cs = pins.gpio7.into_mode :: < hal :: gpio
+        :: FunctionSpi > () ; let spi_dev = hal :: Spi :: < _, _, 8 > ::
+        new(c.device.SPI0) ; let mut spi_dev =
+        spi_dev.init_slave(& mut resets, & embedded_hal :: spi :: MODE_3) ; if
+        spi_dev.write(& [1, 2, 3, 4, 5]).is_ok() {} ; let uart_pins =
         (pins.gpio0.into_mode :: < hal :: gpio :: FunctionUart > (),
         pins.gpio1.into_mode :: < hal :: gpio :: FunctionUart > (),) ; let
         uart = hal :: uart :: UartPeripheral ::
@@ -80,8 +81,8 @@
         new(usb_bus,
         UsbVidPid(0x16c0,
         0x27dd)).manufacturer("Validation").product("Serial port").serial_number("TEST").device_class(2).build()
-        ; let _mdio_pin = pins.gpio5.into_mode :: < hal :: gpio ::
-        FunctionPio0 > () ; let _mdc_pin = pins.gpio6.into_mode :: < hal ::
+        ; let _mdio_pin = pins.gpio8.into_mode :: < hal :: gpio ::
+        FunctionPio0 > () ; let _mdc_pin = pins.gpio9.into_mode :: < hal ::
         gpio :: FunctionPio0 > () ; let program = pio_proc :: pio_asm!
         ("
         .side_set 1", ".wrap_target", "set pins, 0   side 0",

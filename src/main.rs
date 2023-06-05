@@ -11,6 +11,12 @@
 //! TODO: PIO receive/write task
 //! TODO: Assert IRQ on SMI reads
 //! TODO: Clear SPI/UART interrupts
+//! 
+//! src/openocd -f interface/cmsis-dap.cfg -c "adapter speed 1000" -f target/rp2040.cfg -s tcl
+//! gdb-multiarch -q -ex "target extended-remote :3333" target/thumbv6m-none-eabi/debug/pico-rpc-rtic
+
+
+
 
 use defmt_rtt as _;
 use panic_halt as _;
@@ -21,6 +27,7 @@ mod protocol;
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP])]
 mod app {
     use embedded_hal::digital::v2::OutputPin;
+    use embedded_hal::blocking::spi::Write;
     use fugit::HertzU32;
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use rp_pico::hal as hal;
@@ -31,7 +38,7 @@ mod app {
     use hal::{clocks::Clock,
         uart::{UartConfig, DataBits, StopBits},
         gpio::{pin::bank0::*, Pin, FunctionUart},
-        pio::{PIOExt, ShiftDirection,PIOBuilder, SM0, PinDir,}
+        pio::{PIOExt, ShiftDirection,PIOBuilder, SM0, PinDir,},
         };
 
     // USB Device support 
@@ -135,9 +142,9 @@ mod app {
         // Finally we ÷2 on the second post divider to give 151.2 Mhz
         //
         let pll_sys = hal::pll::setup_pll_blocking(c.device.PLL_SYS,  xosc.operating_frequency(), hal::pll::PLLConfig {
-                vco_freq: HertzU32::MHz(944),
+                vco_freq: HertzU32::MHz(800),
                 refdiv: 1,
-                post_div1: 2,
+                post_div1: 3,
                 post_div2: 2,
             }, &mut clocks,
             &mut c.device.RESETS,
@@ -200,14 +207,14 @@ mod app {
         //      SPI0_SMIS_0x4003c014 Expect: 0x0, all Interrupt sources are masked
         // 
         // These are implicitly used by the spi driver if they are in the correct mode
-        let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_mosi = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_miso = pins.gpio16.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_cs = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_sclk = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_mosi = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_miso = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_cs = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
 
-        let spi = hal::Spi::<_, _, 8>::new(c.device.SPI0);
+        let spi_dev = hal::Spi::<_, _, 8>::new(c.device.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
-        let spi_dev = spi.init_slave(&mut resets, &embedded_hal::spi::MODE_3);
+        let mut spi_dev = spi_dev.init_slave(&mut resets, &embedded_hal::spi::MODE_3);
         // SPI Enabled State
         // DEBUG Breakpoint Here: 
         // Test points:
@@ -219,6 +226,9 @@ mod app {
         //      SPI0_SMIS_0x4003c014 Expect: 0xc, RX/TX IM are unmasked
     
         // Prime the tx FIFO with a SPI0_write 
+        if spi_dev.write(&[1,2,3,4,5]).is_ok() {
+            // SPI write was succesful
+        };
         // Does Spi transfer/read/write block until its contents are used or when the write completes?
         // TEST: match on spi_dev..transfer and write and step into each arm
         // Insert Breakpoint
@@ -270,8 +280,8 @@ mod app {
                 .build();
          //*****
         // Initialization of the PIO0 and SMI state machine
-        let _mdio_pin = pins.gpio5.into_mode::<hal::gpio::FunctionPio0>();
-        let _mdc_pin = pins.gpio6.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdio_pin = pins.gpio8.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdc_pin = pins.gpio9.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
         "
         .side_set 1",

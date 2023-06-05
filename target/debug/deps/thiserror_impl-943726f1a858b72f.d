@@ -1,0 +1,12 @@
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\debug\deps\thiserror_impl-943726f1a858b72f.dll: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\ast.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\attr.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\expand.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\fmt.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\generics.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\prop.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\valid.rs
+
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\debug\deps\thiserror_impl-943726f1a858b72f.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\ast.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\attr.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\expand.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\fmt.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\generics.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\prop.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\valid.rs
+
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\lib.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\ast.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\attr.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\expand.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\fmt.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\generics.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\prop.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\thiserror-impl-1.0.40\src\valid.rs:

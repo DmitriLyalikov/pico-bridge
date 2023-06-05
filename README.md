@@ -67,7 +67,7 @@ When fired, the PIO_IRQx handler will check which state machine is ready by read
 
 ### Remote Procedure Call
 * RPC System Architecture
-<img width="716" alt="image" src="https://user-images.githubusercontent.com/68623356/215372195-838c0ac2-9e39-4127-b480-fc2aa33086c0.png">
+m<img width="716" alt="image" src="https://user-images.githubusercontent.com/68623356/215372195-838c0ac2-9e39-4127-b480-fc2aa33086c0.png">
 
 ### DUT Interfaces
 * SPI Master: 4 Modes, Multiple CS, up to system frequency (30 MHz)

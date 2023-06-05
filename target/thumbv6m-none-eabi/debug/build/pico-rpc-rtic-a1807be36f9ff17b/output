@@ -1,0 +1,2 @@
+cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\pico-rpc-rtic-a1807be36f9ff17b\out
+cargo:rerun-if-changed=memory.x
