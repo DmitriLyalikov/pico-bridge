@@ -25,13 +25,21 @@ mod protocol;
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP])]
 mod app {
     use embedded_hal::digital::v2::OutputPin;
-    use embedded_hal::blocking::spi::Write;
+    use embedded_hal::blocking::spi::Transfer;
+
+    use core::cell::RefCell;
+    use core::ops::DerefMut;
+    use cortex_m::interrupt::free;
+    use cortex_m::interrupt::Mutex;
+
     use fugit::HertzU32;
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
 
+    const UART0_ICR: *mut u32 = 0x4003_4044 as *mut u32;
+    const SPI0_ICR: *mut u32 = 0x4003_c020 as *mut u32;
     //use embedded_hal::
     use hal::{clocks::Clock,
         uart::{UartConfig, DataBits, StopBits},
@@ -121,7 +129,6 @@ mod app {
         p.VREG_AND_CHIP_RESET.vreg.write(|w| unsafe {
             w.vsel().bits(14)
         });
-
         // Step 1. Turn on the crystal.
 	    let xosc = hal::xosc::setup_xosc_blocking(p.XOSC, rp_pico::XOSC_CRYSTAL_FREQ.Hz())
             .map_err(|_x| false)
@@ -253,7 +260,7 @@ mod app {
         .unwrap();
         uart_dev.enable_rx_interrupt();
         uart_dev.write_full_blocking(b"UART Alive\r\n");
-        
+
         //*****
         // Initialization of the USB and Serial and USB Device ID
 
@@ -372,7 +379,6 @@ mod app {
         // Set core to sleep
         core.SCB.set_sleepdeep();
 
-        
         //********
         // Return the Shared variables struct, the Local variables struct and the XPTO Monitonics
         (
@@ -418,7 +424,7 @@ mod app {
         let mut serial = cx.shared.serial;
         (serial, host_producer).lock(|serial, host_producer| {
         match uart.read_raw(&mut buffer) {
-            Err(err) => {
+            Err(_err) => {
                 
                     write_serial(serial, "Uart RX Error", false);
                 
@@ -451,7 +457,15 @@ mod app {
             }
         }
         }
-    })
+    });
+        
+    unsafe {
+        // Clear the UART0_IRQ in the NVIC
+        NVIC::unpend(pac::Interrupt::UART0_IRQ);
+        // Clear the UART0 ICR register to clear RX/TX Interrupts for peripheral
+        core::ptr::write_volatile(UART0_ICR, 0x3);
+    }
+    
     }
 
 
@@ -460,9 +474,34 @@ mod app {
     // into the rx_buffer
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds=SPI0_IRQ, priority=2, local=[spi_dev, spi_tx_consumer], shared = [serial])]
+    #[task(binds=SPI0_IRQ, priority=2, local=[spi_dev, spi_tx_consumer], shared = [serial, host_producer])]
     fn spi0(cx: spi0::Context) {  
-         
+         let spi = cx.local.spi_dev;
+         let mut buffer = [0_u8; 16];
+         match spi.transfer(&mut buffer) {
+            Err(_err) => {
+
+            }
+            _ => {
+                match HostRequest::new().build_from_8bit_spi(&buffer) {
+                    Ok(hr) => { // Host Request is clean and ready to be sent out
+                        let mut host_producer = cx.shared.host_producer;
+                        host_producer.lock(|host_producer| {
+                            match host_producer.enqueue(hr) {
+                                Ok(..) => {
+                                    send_out::spawn().unwrap();
+                                }
+                                Err(..) => {
+                                    // implement spi error handling
+                                }
+                            }
+                        })
+                    }
+                    Err(_err) => { // Print the error to serial port if Host Request is invalid
+                    }
+                }
+            }
+         }
         // SPI0_IRQ State
         // Debug Breakpoint
         // Test points:
@@ -509,6 +548,13 @@ mod app {
                 }
             } */
             // cx.local.cs_pin.clear_interrupt(hal::gpio::Interrupt::EdgeLow);
+            
+        unsafe {
+            // Clear the SPI0_IRQ in the NVIC
+            NVIC::unpend(pac::Interrupt::SPI0_IRQ);
+            // Clear the UART RX/TX interrupt on the peripheral
+            core::ptr::write_volatile(SPI0_ICR, 0x3);
+        }
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data

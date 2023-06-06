@@ -5,8 +5,10 @@
     rp_pico :: pac as
     you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml ; use
     embedded_hal :: digital :: v2 :: OutputPin ; use embedded_hal :: blocking
-    :: spi :: Write ; use fugit :: HertzU32 ; use rp_pico :: XOSC_CRYSTAL_FREQ
-    ; use rp_pico :: hal as hal ; use rp_pico :: pac ; use heapless :: spsc ::
+    :: spi :: Transfer ; use core :: cell :: RefCell ; use core :: ops ::
+    DerefMut ; use cortex_m :: interrupt :: free ; use cortex_m :: interrupt
+    :: Mutex ; use fugit :: HertzU32 ; use rp_pico :: XOSC_CRYSTAL_FREQ ; use
+    rp_pico :: hal as hal ; use rp_pico :: pac ; use heapless :: spsc ::
     { Consumer, Producer, Queue } ; use hal ::
     {
         clocks :: Clock, uart :: { UartConfig, DataBits, StopBits }, gpio ::
@@ -20,10 +22,12 @@
         ValidHostInterfaces, Send, host ::
         { HostRequest, Clean, ValidOps, ValidInterfaces, }, slave ::
         { NotReady, SlaveResponse }
-    } ; use core :: str ; #[doc = r" User code from within the module"]
-    #[doc = " Clock divider for the PIO SM"] const SMI_DEFAULT_CLKDIV : u16 =
-    1 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ; type UartTx = Pin < Gpio0,
-    FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
+    } ; use core :: str ; #[doc = r" User code from within the module"] const
+    UART0_ICR : * mut u32 = 0x4003_4044 as * mut u32 ; const SPI0_ICR : * mut
+    u32 = 0x4003_c020 as * mut u32 ; #[doc = " Clock divider for the PIO SM"]
+    const SMI_DEFAULT_CLKDIV : u16 = 1 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ;
+    type UartTx = Pin < Gpio0, FunctionUart > ; type UartRx = Pin < Gpio1,
+    FunctionUart > ;
     #[doc =
     " External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust"]
     #[doc = " if your board has a different frequency"] const XTAL_FREQ_HZ :
@@ -146,8 +150,8 @@
         {
             match uart.read_raw(& mut buffer)
             {
-                Err(err) => { write_serial(serial, "Uart RX Error", false) ; }
-                _ =>
+                Err(_err) =>
+                { write_serial(serial, "Uart RX Error", false) ; } _ =>
                 {
                     match match_usb_serial_buf(& buffer, serial)
                     {
@@ -172,12 +176,42 @@
                     }
                 }
             }
-        })
+        }) ; unsafe
+        {
+            NVIC :: unpend(pac :: Interrupt :: UART0_IRQ) ; core :: ptr ::
+            write_volatile(UART0_ICR, 0x3) ;
+        }
     } #[doc = " User HW task: spi0"] #[inline(never)]
     #[link_section = ".data.bar"] #[allow(non_snake_case)] fn
     spi0(cx : spi0 :: Context)
-    { use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; }
-    #[doc = " User HW task: usb_rx"] #[inline(never)]
+    {
+        use rtic :: Mutex as _ ; use rtic :: mutex :: prelude :: * ; let spi =
+        cx.local.spi_dev ; let mut buffer = [0_u8 ; 16] ; match
+        spi.transfer(& mut buffer)
+        {
+            Err(_err) => {} _ =>
+            {
+                match HostRequest :: new().build_from_8bit_spi(& buffer)
+                {
+                    Ok(hr) =>
+                    {
+                        let mut host_producer = cx.shared.host_producer ;
+                        host_producer.lock(| host_producer |
+                        {
+                            match host_producer.enqueue(hr)
+                            {
+                                Ok(..) => { send_out :: spawn().unwrap() ; } Err(..) => {}
+                            }
+                        })
+                    } Err(_err) => {}
+                }
+            }
+        } unsafe
+        {
+            NVIC :: unpend(pac :: Interrupt :: SPI0_IRQ) ; core :: ptr ::
+            write_volatile(SPI0_ICR, 0x3) ;
+        }
+    } #[doc = " User HW task: usb_rx"] #[inline(never)]
     #[link_section = ".data.bar"] #[allow(non_snake_case)] fn
     usb_rx(cx : usb_rx :: Context)
     {
@@ -554,6 +588,10 @@
         " Resource proxy resource `serial`. Use method `.lock()` to gain access"]
         pub serial : shared_resources :: serial_that_needs_to_be_locked < 'a
         >,
+        #[doc =
+        " Resource proxy resource `host_producer`. Use method `.lock()` to gain access"]
+        pub host_producer : shared_resources ::
+        host_producer_that_needs_to_be_locked < 'a >,
     } #[doc = r" Execution context"] #[allow(non_snake_case)]
     #[allow(non_camel_case_types)] pub struct __rtic_internal_spi0_Context <
     'a >
@@ -1158,6 +1196,8 @@
             {
                 #[doc(hidden)] serial : shared_resources ::
                 serial_that_needs_to_be_locked :: new(priority),
+                #[doc(hidden)] host_producer : shared_resources ::
+                host_producer_that_needs_to_be_locked :: new(priority),
             }
         }
     } #[allow(non_snake_case)] #[no_mangle]
