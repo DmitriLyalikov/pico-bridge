@@ -1,5 +1,5 @@
 cargo:rustc-cfg=cortex_m
 cargo:rustc-cfg=armv6m
-cargo:rustc-link-search=c:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\cortex-m-rt-5b8e3b1c0145e707\out
+cargo:rustc-link-search=C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\build\cortex-m-rt-5b8e3b1c0145e707\out
 cargo:rerun-if-changed=build.rs
 cargo:rerun-if-changed=link.x.in
