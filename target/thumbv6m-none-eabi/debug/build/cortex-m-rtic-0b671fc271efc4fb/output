@@ -1,0 +1,2 @@
+cargo:rustc-cfg=armv6m
+cargo:rerun-if-changed=build.rs

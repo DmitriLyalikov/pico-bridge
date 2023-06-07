@@ -22,18 +22,15 @@ mod fmt;
 mod serial;
 mod protocol;
 
-#[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP])]
+#[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP, SIO_IRQ_PROC0, SIO_IRQ_PROC1, UART1_IRQ])]
 mod app {
     use embedded_hal::digital::v2::OutputPin;
-    use embedded_hal::blocking::spi::Transfer;
-
-    use core::cell::RefCell;
-    use core::ops::DerefMut;
-    use cortex_m::interrupt::free;
-    use cortex_m::interrupt::Mutex;
+    use embedded_hal::blocking::spi::{Transfer, Write};
+    use embedded_hal::spi::FullDuplex;
 
     use fugit::HertzU32;
     use rp_pico::XOSC_CRYSTAL_FREQ;
+    use rp_pico::pac::Interrupt;
     use rp_pico::hal as hal;
     use rp_pico::pac;
     use heapless::spsc::{Consumer, Producer, Queue};
@@ -57,7 +54,7 @@ mod app {
     use fugit::RateExtU32;
 
     use crate::serial::{match_usb_serial_buf, write_serial};
-    use crate::protocol::{ValidHostInterfaces, Send,
+    use crate::protocol::{Send,
         host::{HostRequest, Clean, ValidOps, ValidInterfaces,}, 
         slave::{NotReady, SlaveResponse}};
 
@@ -72,7 +69,6 @@ mod app {
 
     /// External high-speed crystal on the Raspberry Pi Pico board is 12 MHz. Adjust
     /// if your board has a different frequency
-    const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
     #[shared]
     struct Shared {
@@ -97,12 +93,12 @@ mod app {
         _spi_tx_buf: [u16; 9],
 
         // pin for interrupt testing, additional functions, etc..
-        freepin: Pin<Gpio19, hal::gpio::Output<hal::gpio::PushPull>>,
+        freepin: Pin<Gpio25, hal::gpio::Output<hal::gpio::PushPull>>,
+        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
     }
 
     #[local]
     struct Local {
-        spi_dev: hal::Spi<hal::spi::Enabled, pac::SPI0, 8>,
         uart_dev: hal::uart::UartPeripheral<hal::uart::Enabled, pac::UART0, (UartTx, UartRx)>,
 
         spi_tx_producer: Producer<'static, [u8; 18], 3>,
@@ -118,7 +114,10 @@ mod app {
         spi_q: Queue<[u8; 18], 3> = Queue::new(),
         q: Queue<SlaveResponse<NotReady>, 3> = Queue::new(),
         host_q: Queue<HostRequest<Clean>, 3> = Queue::new()])]
-    fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
+    fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
+        unsafe {
+            hal::sio::spinlock_reset();
+        }
         let mut core = c.core;
         let mut p = c.device;
         //*******
@@ -179,20 +178,6 @@ mod app {
         .map_err(|_x| false)
         .unwrap();
 
-        /* 
-        // Configure the clocks
-        let clocks = hal::clocks::init_clocks_and_plls(
-            XTAL_FREQ_HZ,
-            c.device.XOSC,
-            c.device.CLOCKS,
-            c.device.PLL_SYS,
-            c.device.PLL_USB,
-            &mut resets,
-            &mut watchdog,
-        )
-        .ok()
-        .unwrap();
-        */
         let mut resets = p.RESETS;
         // The single-cycle I/O block controls our GPIO pins
         let sio = hal::Sio::new(p.SIO);
@@ -205,7 +190,7 @@ mod app {
             &mut resets,
         );
 
-        let mut freepin = pins.gpio19.into_push_pull_output();
+        let mut freepin = pins.gpio25.into_push_pull_output();
         // SPI Pre-Init Reset State
         // DEBUG Breakpoint Here: 
         // Test points:
@@ -216,14 +201,14 @@ mod app {
         //      SPI0_SMIS_0x4003c014 Expect: 0x0, all Interrupt sources are masked
         // 
         // These are implicitly used by the spi driver if they are in the correct mode
-        let spi_sclk = pins.gpio4.into_mode::<hal::gpio::FunctionSpi>();
-        let spi_mosi = pins.gpio5.into_mode::<hal::gpio::FunctionSpi>();
-        let spi_miso = pins.gpio6.into_mode::<hal::gpio::FunctionSpi>();
-        let spi_cs = pins.gpio7.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_mosi = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_miso = pins.gpio16.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_cs = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
 
-        let spi_dev = hal::Spi::<_, _, 8>::new(p.SPI0);
+        let mut spi_dev = hal::Spi::<_, _, 8>::new(p.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
-        let mut spi_dev = spi_dev.init_slave(&mut resets, &embedded_hal::spi::MODE_3);
+        let mut spi_dev = spi_dev.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
         // SPI Enabled State
         // DEBUG Breakpoint Here: 
         // Test points:
@@ -363,7 +348,7 @@ mod app {
         // initialize our first buffer
         spi_tx_producer.enqueue([0_u8; 18]).unwrap();
 
-        freepin.set_high();
+        freepin.set_low().unwrap();
         // q has 'static lifetime so after the split and return of 'init'
         // it will continue to exist and be allocated
         let (producer, consumer) = c.local.q.split();
@@ -372,10 +357,13 @@ mod app {
         //spi_dev.write(&[1_u8, 2_u8, 3_u8, 4_u8, 5_u8, 6_u8, 7_u8, 8_u8]).unwrap();
 
         unsafe {
-            NVIC::unmask(pac::Interrupt::UART0_IRQ);
-            NVIC::unmask(pac::Interrupt::SPI0_IRQ);
-            NVIC::unmask(pac::Interrupt::PIO0_IRQ_0);
+            NVIC::unmask(Interrupt::UART0_IRQ);
+            // NVIC::unmask(Interrupt::SPI0_IRQ);
+            NVIC::unmask(Interrupt::PIO0_IRQ_0);
+            // NVIC::pend(Interrupt::SPI0_IRQ);
         }
+        
+        spi_dev.send(3_u8);
         // Set core to sleep
         core.SCB.set_sleepdeep();
 
@@ -397,11 +385,10 @@ mod app {
 
                 host_producer,
                 freepin,
+                spi_dev: spi_dev,
             },
             Local {
-                spi_dev: spi_dev,
                 uart_dev: uart_dev,
-                //cs_pin,
 
                 spi_tx_producer,
                 spi_tx_consumer,
@@ -418,16 +405,14 @@ mod app {
     #[task(binds=UART0_IRQ, priority=2, local=[uart_dev], shared=[serial, host_producer])]
     fn uart0(cx: uart0::Context) {
         let uart = cx.local.uart_dev;
-        let mut host_producer = cx.shared.host_producer;
+        let host_producer = cx.shared.host_producer;
         // RX FIFO is 32 bytes deep
         let mut buffer = [0_u8; 64];
-        let mut serial = cx.shared.serial;
+        let serial = cx.shared.serial;
         (serial, host_producer).lock(|serial, host_producer| {
         match uart.read_raw(&mut buffer) {
-            Err(_err) => {
-                
-                    write_serial(serial, "Uart RX Error", false);
-                
+            Err(_err) => {   
+                    write_serial(serial, "Uart RX Error", false);  
             }
             _ => {
                 match match_usb_serial_buf(&buffer, serial) {
@@ -474,8 +459,16 @@ mod app {
     // into the rx_buffer
     #[inline(never)]
     #[link_section = ".data.bar"] // Execute from IRAM
-    #[task(binds=SPI0_IRQ, priority=2, local=[spi_dev, spi_tx_consumer], shared = [serial, host_producer])]
+    #[task(binds=SPI0_IRQ, priority=2, local=[spi_tx_consumer], shared = [spi_dev, serial, host_producer, freepin])]
     fn spi0(cx: spi0::Context) {  
+        let mut serial = cx.shared.serial;
+        let mut freepin = cx.shared.freepin;
+        (serial, freepin).lock(|serial, freepin|
+            {
+                freepin.set_high();
+                write_serial(serial, "RX IRQ\n\r", false);
+            }); 
+        /* 
          let spi = cx.local.spi_dev;
          let mut buffer = [0_u8; 16];
          match spi.transfer(&mut buffer) {
@@ -501,7 +494,7 @@ mod app {
                     }
                 }
             }
-         }
+         } */
         // SPI0_IRQ State
         // Debug Breakpoint
         // Test points:
@@ -547,14 +540,13 @@ mod app {
             _ => {
                 }
             } */
-            // cx.local.cs_pin.clear_interrupt(hal::gpio::Interrupt::EdgeLow);
             
-        unsafe {
+        //unsafe {
             // Clear the SPI0_IRQ in the NVIC
-            NVIC::unpend(pac::Interrupt::SPI0_IRQ);
+        //    NVIC::unpend(pac::Interrupt::SPI0_IRQ);
             // Clear the UART RX/TX interrupt on the peripheral
-            core::ptr::write_volatile(SPI0_ICR, 0x3);
-        }
+         //   core::ptr::write_volatile(SPI0_ICR, 0x3);
+        // }
     }
 
     // USB interrupt handler hardware task. Runs every time host requests new data
@@ -587,7 +579,7 @@ mod app {
                             match buf[0] {
                                 // Check if return key was given \n, if so a command was given.
                                 b'\r' => { 
-                                    freepin.set_high().unwrap();
+                                    //freepin.set_high().unwrap();
                                     let first_zero = serial_buf.iter().position(|&x| x == 0);
                                     match first_zero {
                                         Some(Index) => { serial_buf[Index] = b' '; }
@@ -826,10 +818,12 @@ mod app {
     }
 
     // Task with least priority that only runs when nothing else is running.
-    #[idle(local = [])]
+    #[idle(local = [], shared = [spi_dev])]
     fn idle(_cx: idle::Context) -> ! {
         // Locals in idle have lifetime 'static
         loop {
+            //rtic::pend(Interrupt::UART0_IRQ);
+            //rtic::pend(Interrupt::SPI0_IRQ);
             // Now Wait For Interrupt is used instead of a busy-wait loop
             // to allow MCU to sleep between interrupts
             // https://developer.arm.com/documentation/ddi0406/c/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/WFI
