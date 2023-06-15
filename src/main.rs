@@ -33,10 +33,13 @@ mod app {
     use rp_pico::pac::Interrupt;
     use rp_pico::hal as hal;
     use rp_pico::pac;
-    use heapless::spsc::{Consumer, Producer, Queue};
+    use heapless::{String, spsc::{Consumer, Producer, Queue}};
 
     const UART0_ICR: *mut u32 = 0x4003_4044 as *mut u32;
     const SPI0_ICR: *mut u32 = 0x4003_c020 as *mut u32;
+    const PIO0_IRQE: *mut u32 = 0x5020012c as *mut u32;
+    const PIO0_IRQC: *mut u32 = 0x50200030 as *mut u32;
+    
     //use embedded_hal::
     use hal::{clocks::Clock,
         uart::{UartConfig, DataBits, StopBits},
@@ -53,8 +56,9 @@ mod app {
     use usbd_serial::SerialPort;
     use fugit::RateExtU32;
 
+    use crate::fmt::Wrapper;
     use crate::serial::{match_usb_serial_buf, write_serial};
-    use crate::protocol::{Send,
+    use crate::protocol::{Send, ValidHostInterfaces,
         host::{HostRequest, Clean, ValidOps, ValidInterfaces,}, 
         slave::{NotReady, SlaveResponse}};
 
@@ -208,7 +212,9 @@ mod app {
 
         let mut spi_dev = hal::Spi::<_, _, 8>::new(p.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
+        // let mut spi_dev = spi_dev.init(resets, peri_frequency, baudrate, mode);
         let mut spi_dev = spi_dev.init_slave(&mut resets, &embedded_hal::spi::MODE_0);
+        
         // SPI Enabled State
         // DEBUG Breakpoint Here: 
         // Test points:
@@ -244,7 +250,8 @@ mod app {
         )
         .unwrap();
         uart_dev.enable_rx_interrupt();
-        uart_dev.write_full_blocking(b"UART Alive\r\n");
+        uart_dev.set_rx_watermark(hal::uart::FifoWatermark::Bytes28);
+        // uart_dev.write_full_blocking(b"UART Alive\r\n");
 
         //*****
         // Initialization of the USB and Serial and USB Device ID
@@ -310,8 +317,7 @@ mod app {
     "read_data:",
         "in pins 1 side 1 [4]",
         "jmp x-- read_data side 0 [4]",
-        "push side 0",
-        "irq 1 side 0",        // Set IRQ flag with index 1 (State machine 1)
+        "push side 0",        // Set IRQ flag with index 1 (State machine 1)
         "out null 19 side 0"   // // Discard remaining 19 bits of 32 bit word (we wrote first 12 which are OP/PHY/REG fields)
         "jmp start side 0",
     "write_data:",
@@ -320,9 +326,11 @@ mod app {
         "jmp x-- write_data side 0 [3]",
         "set pins 0 side 0",        // Set IRQ flag with index 1 (State machine 1)
         "out null 32 side 0",
+        // "irq 1 side 0",     
         ".wrap",
         ); 
-            
+
+        
         let (mut pio0, sm0, _, _, _,) = p.PIO0.split(&mut resets);
         let installed = pio0.install(&program.program).unwrap();
         let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
@@ -355,15 +363,12 @@ mod app {
         let (host_producer, host_consumer) = c.local.host_q.split();
 
         //spi_dev.write(&[1_u8, 2_u8, 3_u8, 4_u8, 5_u8, 6_u8, 7_u8, 8_u8]).unwrap();
-
+        // IRQ0_INTE enable 0x5020012c
         unsafe {
-            NVIC::unmask(Interrupt::UART0_IRQ);
-            // NVIC::unmask(Interrupt::SPI0_IRQ);
-            NVIC::unmask(Interrupt::PIO0_IRQ_0);
-            // NVIC::pend(Interrupt::SPI0_IRQ);
+            core::ptr::write_volatile(PIO0_IRQE, 0x1);
         }
         
-        spi_dev.send(3_u8);
+        // spi_dev.send(3_u8);
         // Set core to sleep
         core.SCB.set_sleepdeep();
 
@@ -402,13 +407,14 @@ mod app {
         )
     }
 
-    #[task(binds=UART0_IRQ, priority=2, local=[uart_dev], shared=[serial, host_producer])]
+    #[task(binds=UART0_IRQ, priority=3, local=[uart_dev], shared=[serial, host_producer])]
     fn uart0(cx: uart0::Context) {
         let uart = cx.local.uart_dev;
         let host_producer = cx.shared.host_producer;
         // RX FIFO is 32 bytes deep
         let mut buffer = [0_u8; 64];
         let serial = cx.shared.serial;
+        /*  
         (serial, host_producer).lock(|serial, host_producer| {
         match uart.read_raw(&mut buffer) {
             Err(_err) => {   
@@ -450,9 +456,8 @@ mod app {
         // Clear the UART0 ICR register to clear RX/TX Interrupts for peripheral
         core::ptr::write_volatile(UART0_ICR, 0x3);
     }
-    
+    */
     }
-
 
     // Task that binds to the SPI0 IRQ and handles requests. This will execute from RAM
     // This takes a mutable reference to the SPI bus writes immediately from tx_buffer while reading 
@@ -727,6 +732,11 @@ mod app {
     #[task(binds = PIO0_IRQ_0, priority = 3, shared = [serial, pio0, smi_rx], local = [consumer])]
     fn pio_sm_rx(cx: pio_sm_rx::Context) {
         // All statemachines implement IRQ flags, of which the first 0-3 LSB 
+
+        unsafe {
+            core::ptr::write_volatile(PIO0_IRQC, 0xFFF);
+            NVIC::unpend(pac::Interrupt::PIO0_IRQ_0);
+        }
         let mut serial = cx.shared.serial;
         (serial).lock(|serial| {
             write_serial(serial, "fired", false);
@@ -742,23 +752,13 @@ mod app {
                 |pio0, rx_a, serial,| {
                     // First, read the index of the state machine IRQ flag 
                     // This determines which state machine flagged an IRQ
-                    let index = pio0.get_irq_raw();
-                    match index {
-                        // This is the SMI state machine
-                        1 => {
-                            match rx_a.read() {
-                                Some(word) => {
+                    match rx_a.read() {
+                        Some(word) => {
                                     // We got a word from the SMI RX FIFO
-                                    slave_response.set_payload(word);
-                                }
-                                _ => {
-                                    // No word received
-                                }
-                            }
+                            slave_response.set_payload(word);
                         }
-                        // For now just implement SMI
                         _ => {
-
+                                    // No word received
                         }
                     }
                     // Clear all PIO0 IRQ flags
@@ -768,7 +768,7 @@ mod app {
                     match slave_response.init_ready() {
                         Ok(sr) => {
                             write_serial(serial, "Hi", false);
-                            // respond_to_host::spawn(sr);
+                            respond_to_host::spawn(sr);
                         }
                         Err(err) => {
                                     write_serial(serial, err, false);
@@ -790,37 +790,45 @@ mod app {
     fn respond_to_host(cx: respond_to_host::Context, sr: SlaveResponse<crate::protocol::slave::Ready>) {
         // If Host Response was SPI, we need to update the slave TX Buffer
         // This slave response will go out when the Master requests it again.
-        /* let serial = cx.shared.serial;
-        (serial).lock(|serial| {});
-            if sr.host_config == ValidHostInterfaces::SPI {
-                let mut tx_buf = [0_u8; 18];
-                // Push the relevant slave response fields to the spi tx buffer
-                tx_buf[0] = sr.proc_id as u8;
+         let mut serial = cx.shared.serial;
+        if sr.host_config == ValidHostInterfaces::SPI {
+            let mut tx_buf = [0_u8; 18];
+            // Push the relevant slave response fields to the spi tx buffer
+            tx_buf[0] = sr.proc_id as u8;
 
-                //let split_u32_to_u16 = |word: u32| -> (u16, u16) {
-                //        ((word >> 16) as u16, word as u16)
-                //    };
-                // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
-                //(tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
+            //let split_u32_to_u16 = |word: u32| -> (u16, u16) {
+            //        ((word >> 16) as u16, word as u16)
+            //    };
+            // Split the 32-bit word from the FIFO to 16 bits, we have 16-bit SPI
+            //(tx_buf[1], tx_buf[2]) = split_u32_to_u16(sr.payload);
 
-                let split_u32_to_u8 = |word: u32| -> (u8, u8, u8, u8) {
-                    (((word >> 24) & 0xff) as u8, ((word >> 16) & 0xff) as u8, ((word >> 8) & 0xff) as u8, (word & 0xff) as u8)
-                };
+            let split_u32_to_u8 = |word: u32| -> (u8, u8, u8, u8) {
+                (((word >> 24) & 0xff) as u8, ((word >> 16) & 0xff) as u8, ((word >> 8) & 0xff) as u8, (word & 0xff) as u8)
+            };
 
-                (tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4]) = split_u32_to_u8(sr.payload);
+            (tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4]) = split_u32_to_u8(sr.payload);
 
-                cx.local.spi_tx_producer.enqueue(tx_buf).unwrap();
-            }
+            cx.local.spi_tx_producer.enqueue(tx_buf).unwrap();
+           }
 
-            else if sr.host_config == ValidHostInterfaces::Serial {
-
-            } */
+        else if sr.host_config == ValidHostInterfaces::Serial {
+            (serial).lock(|serial| {
+                let mut data = String::<32>::new();
+                let mut buf = [0 as u8, 20];
+                write!(Wrapper::new(&mut buf), "{}", sr.payload).expect("Can't Write");
+                write_serial(serial, out, false);
+            });
+        } 
     }
 
     // Task with least priority that only runs when nothing else is running.
     #[idle(local = [], shared = [spi_dev])]
     fn idle(_cx: idle::Context) -> ! {
         // Locals in idle have lifetime 'static
+        
+        //unsafe {
+        //    core::ptr::write_volatile(PIO0_IRQE, 0x10);
+        // }
         loop {
             //rtic::pend(Interrupt::UART0_IRQ);
             //rtic::pend(Interrupt::SPI0_IRQ);

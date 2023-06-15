@@ -8,26 +8,28 @@
     :: spi :: { Transfer, Write } ; use embedded_hal :: spi :: FullDuplex ;
     use fugit :: HertzU32 ; use rp_pico :: XOSC_CRYSTAL_FREQ ; use rp_pico ::
     pac :: Interrupt ; use rp_pico :: hal as hal ; use rp_pico :: pac ; use
-    heapless :: spsc :: { Consumer, Producer, Queue } ; use hal ::
+    heapless :: { String, spsc :: { Consumer, Producer, Queue } } ; use hal ::
     {
         clocks :: Clock, uart :: { UartConfig, DataBits, StopBits }, gpio ::
         { pin :: bank0 :: *, Pin, FunctionUart }, pio ::
         { PIOExt, ShiftDirection, PIOBuilder, SM0, PinDir, },
     } ; use cortex_m :: peripheral :: NVIC ; use usb_device ::
     { class_prelude :: *, prelude :: * } ; use usbd_serial :: SerialPort ; use
-    fugit :: RateExtU32 ; use crate :: serial ::
+    fugit :: RateExtU32 ; use crate :: fmt :: Wrapper ; use crate :: serial ::
     { match_usb_serial_buf, write_serial } ; use crate :: protocol ::
     {
-        Send, host :: { HostRequest, Clean, ValidOps, ValidInterfaces, },
-        slave :: { NotReady, SlaveResponse }
+        Send, ValidHostInterfaces, host ::
+        { HostRequest, Clean, ValidOps, ValidInterfaces, }, slave ::
+        { NotReady, SlaveResponse }
     } ; use core :: str ; #[doc = r" User code from within the module"] const
     UART0_ICR : * mut u32 = 0x4003_4044 as * mut u32 ; const SPI0_ICR : * mut
-    u32 = 0x4003_c020 as * mut u32 ; #[doc = " Clock divider for the PIO SM"]
-    const SMI_DEFAULT_CLKDIV : u16 = 1 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ;
-    type UartTx = Pin < Gpio0, FunctionUart > ; type UartRx = Pin < Gpio1,
-    FunctionUart > ; #[doc = r" User code end"] #[inline(always)]
-    #[allow(non_snake_case)] fn init(c : init :: Context) ->
-    (Shared, Local, init :: Monotonics)
+    u32 = 0x4003_c020 as * mut u32 ; const PIO0_IRQE : * mut u32 = 0x5020012c
+    as * mut u32 ; const PIO0_IRQC : * mut u32 = 0x50200030 as * mut u32 ;
+    #[doc = " Clock divider for the PIO SM"] const SMI_DEFAULT_CLKDIV : u16 =
+    1 ; const PIO_CLK_DIV_FRAQ : u8 = 1 ; type UartTx = Pin < Gpio0,
+    FunctionUart > ; type UartRx = Pin < Gpio1, FunctionUart > ;
+    #[doc = r" User code end"] #[inline(always)] #[allow(non_snake_case)] fn
+    init(c : init :: Context) -> (Shared, Local, init :: Monotonics)
     {
         unsafe { hal :: sio :: spinlock_reset() ; } let mut core = c.core ;
         let mut p = c.device ; let mut watchdog = hal :: watchdog :: Watchdog
@@ -70,8 +72,8 @@
         new(115200.Hz(), DataBits :: Eight, None, StopBits :: One),
         clocks.peripheral_clock.freq(),).unwrap() ;
         uart_dev.enable_rx_interrupt() ;
-        uart_dev.write_full_blocking(b"UART Alive\r\n") ; let usb_bus : &
-        'static _ =
+        uart_dev.set_rx_watermark(hal :: uart :: FifoWatermark :: Bytes28) ;
+        let usb_bus : & 'static _ =
         c.local.usb_bus.insert(UsbBusAllocator ::
         new(hal :: usb :: UsbBus ::
         new(p.USBCTRL_REGS, p.USBCTRL_DPRAM, clocks.usb_clock, true, & mut
@@ -95,13 +97,13 @@
         "out y 1 side 1 [4]", "nop side 0 [4]", "nop side 1 [4]",
         "jmp y-- write_data    side 0 [2]", "set pindirs, 0 side 0 [2]",
         "read_data:", "in pins 1 side 1 [4]", "jmp x-- read_data side 0 [4]",
-        "push side 0", "irq 1 side 0", "out null 19 side 0"
-        "jmp start side 0", "write_data:", "nop side 0 [1]",
-        "out pins, 1 side 1 [4]", "jmp x-- write_data side 0 [3]",
-        "set pins 0 side 0", "out null 32 side 0", ".wrap",) ;
-        let(mut pio0, sm0, _, _, _,) = p.PIO0.split(& mut resets) ; let
-        installed = pio0.install(& program.program).unwrap() ;
-        let(mut sm, smi_rx, smi_tx) = PIOBuilder ::
+        "push side 0", "out null 19 side 0" "jmp start side 0", "write_data:",
+        "nop side 0 [1]", "out pins, 1 side 1 [4]",
+        "jmp x-- write_data side 0 [3]", "set pins 0 side 0",
+        "out null 32 side 0", ".wrap",) ; let(mut pio0, sm0, _, _, _,) =
+        p.PIO0.split(& mut resets) ; let installed =
+        pio0.install(& program.program).unwrap() ; let(mut sm, smi_rx, smi_tx)
+        = PIOBuilder ::
         from_program(installed).out_pins(5,
         1).side_set_pin_base(6).out_sticky(false).clock_divisor_fixed_point(SMI_DEFAULT_CLKDIV,
         PIO_CLK_DIV_FRAQ).out_shift_direction(ShiftDirection ::
@@ -115,10 +117,8 @@
         ; freepin.set_low().unwrap() ; let(producer, consumer) =
         c.local.q.split() ; let(host_producer, host_consumer) =
         c.local.host_q.split() ; unsafe
-        {
-            NVIC :: unmask(Interrupt :: UART0_IRQ) ; NVIC ::
-            unmask(Interrupt :: PIO0_IRQ_0) ;
-        } spi_dev.send(3_u8) ; core.SCB.set_sleepdeep() ;
+        { core :: ptr :: write_volatile(PIO0_IRQE, 0x1) ; }
+        core.SCB.set_sleepdeep() ;
         (Shared
         {
             serial, usb_dev, pio0, smi_master, smi_tx, smi_rx, serial_buf,
@@ -137,42 +137,6 @@
         use rtic :: Mutex as _ ; use rtic :: mutex_prelude :: * ; let uart =
         cx.local.uart_dev ; let host_producer = cx.shared.host_producer ; let
         mut buffer = [0_u8 ; 64] ; let serial = cx.shared.serial ;
-        (serial,
-        host_producer).lock(| serial, host_producer |
-        {
-            match uart.read_raw(& mut buffer)
-            {
-                Err(_err) =>
-                { write_serial(serial, "Uart RX Error", false) ; } _ =>
-                {
-                    match match_usb_serial_buf(& buffer, serial)
-                    {
-                        Ok(hr) =>
-                        {
-                            let clean = hr.init_clean() ; match clean
-                            {
-                                Ok(hr) =>
-                                {
-                                    match host_producer.enqueue(hr)
-                                    {
-                                        Ok(..) => {} Err(..) =>
-                                        {
-                                            write_serial(serial,
-                                            "Error Pushing Host Request to queue\n\r", false) ;
-                                        }
-                                    } ; send_out :: spawn().unwrap() ;
-                                } Err(err) => { write_serial(serial, err, false) ; }
-                            }
-                        } Err("Ok") => {} Err(err) =>
-                        { write_serial(serial, err, false) ; }
-                    }
-                }
-            }
-        }) ; unsafe
-        {
-            NVIC :: unpend(pac :: Interrupt :: UART0_IRQ) ; core :: ptr ::
-            write_volatile(UART0_ICR, 0x3) ;
-        }
     } #[inline(never)] #[link_section = ".data.bar"] #[allow(non_snake_case)]
     fn spi0(cx : spi0 :: Context)
     {
@@ -251,8 +215,11 @@
         })
     } #[allow(non_snake_case)] fn pio_sm_rx(cx : pio_sm_rx :: Context)
     {
-        use rtic :: Mutex as _ ; use rtic :: mutex_prelude :: * ; let mut
-        serial = cx.shared.serial ;
+        use rtic :: Mutex as _ ; use rtic :: mutex_prelude :: * ; unsafe
+        {
+            core :: ptr :: write_volatile(PIO0_IRQC, 0xFFF) ; NVIC ::
+            unpend(pac :: Interrupt :: PIO0_IRQ_0) ;
+        } let mut serial = cx.shared.serial ;
         (serial).lock(| serial | { write_serial(serial, "fired", false) ; }) ;
         if let Some(mut slave_response) = cx.local.consumer.dequeue()
         {
@@ -260,19 +227,16 @@
             (pio0, rx,
             serial).lock(| pio0, rx_a, serial, |
             {
-                let index = pio0.get_irq_raw() ; match index
+                match rx_a.read()
                 {
-                    1 =>
-                    {
-                        match rx_a.read()
-                        {
-                            Some(word) => { slave_response.set_payload(word) ; } _ => {}
-                        }
-                    } _ => {}
+                    Some(word) => { slave_response.set_payload(word) ; } _ => {}
                 } pio0.clear_irq(0xF) ; match slave_response.init_ready()
                 {
-                    Ok(sr) => { write_serial(serial, "Hi", false) ; } Err(err)
-                    => { write_serial(serial, err, false) ; }
+                    Ok(sr) =>
+                    {
+                        write_serial(serial, "Hi", false) ; respond_to_host ::
+                        spawn(sr) ;
+                    } Err(err) => { write_serial(serial, err, false) ; }
                 }
             })
         } else {}
@@ -341,8 +305,31 @@
     } #[allow(non_snake_case)] fn
     respond_to_host(cx : respond_to_host :: Context, sr : SlaveResponse <
     crate :: protocol :: slave :: Ready >)
-    { use rtic :: Mutex as _ ; use rtic :: mutex_prelude :: * ; } struct
-    Shared
+    {
+        use rtic :: Mutex as _ ; use rtic :: mutex_prelude :: * ; let mut
+        serial = cx.shared.serial ; if sr.host_config == ValidHostInterfaces
+        :: SPI
+        {
+            let mut tx_buf = [0_u8 ; 18] ; tx_buf [0] = sr.proc_id as u8 ; let
+            split_u32_to_u8 = | word : u32 | -> (u8, u8, u8, u8)
+            {
+                (((word >> 24) & 0xff) as u8, ((word >> 16) & 0xff) as u8,
+                ((word >> 8) & 0xff) as u8, (word & 0xff) as u8)
+            } ; (tx_buf [1], tx_buf [2], tx_buf [3], tx_buf [4]) =
+            split_u32_to_u8(sr.payload) ;
+            cx.local.spi_tx_producer.enqueue(tx_buf).unwrap() ;
+        } else if sr.host_config == ValidHostInterfaces :: Serial
+        {
+            (serial).lock(| serial |
+            {
+                let mut data = String :: < 32 > :: new() ; let mut buf =
+                [0 as u8, 20] ; write!
+                (Wrapper :: new(& mut buf), "{}",
+                sr.payload).expect("Can't Write") ;
+                write_serial(serial, out, false) ;
+            }) ;
+        }
+    } struct Shared
     {
         serial : SerialPort < 'static, hal :: usb :: UsbBus >, usb_dev :
         usb_device :: device :: UsbDevice < 'static, hal :: usb :: UsbBus >,
@@ -1035,7 +1022,7 @@
     < Clean >, 3 > > = rtic :: RacyCell :: new(Queue :: new()) ;
     #[allow(non_snake_case)] #[no_mangle] unsafe fn UART0_IRQ()
     {
-        const PRIORITY : u8 = 2u8 ; rtic :: export ::
+        const PRIORITY : u8 = 3u8 ; rtic :: export ::
         run(PRIORITY, ||
         {
             uart0(uart0 :: Context ::
@@ -1316,10 +1303,10 @@
             export :: NVIC ::
             unmask(you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml
             :: interrupt :: PWM_IRQ_WRAP) ; let _ =
-            [() ; ((1 << rp_pico :: pac :: NVIC_PRIO_BITS) - 2u8 as usize)] ;
+            [() ; ((1 << rp_pico :: pac :: NVIC_PRIO_BITS) - 3u8 as usize)] ;
             core.NVIC.set_priority(you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml
             :: interrupt :: UART0_IRQ, rtic :: export ::
-            logical2hw(2u8, rp_pico :: pac :: NVIC_PRIO_BITS),) ; rtic ::
+            logical2hw(3u8, rp_pico :: pac :: NVIC_PRIO_BITS),) ; rtic ::
             export :: NVIC ::
             unmask(you_must_enable_the_rt_feature_for_the_pac_in_your_cargo_toml
             :: interrupt :: UART0_IRQ) ; let _ =

@@ -22,11 +22,12 @@ futures = { version = "0.3", default-features = false, optional = true }
 # jnc commnet pico-probe
 defmt = "0.3.0"
 defmt-rtt = "0.4.0"
+itoa = "1.0.6"
 #panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 
 # We're using a Pico BSP by default on this template
-rp-pico = {git = "https://github.com/DmitriLyalikov/rp-hal-boards.git"}
-#rp-pico = "0.7.0"
+#rp-pico = {git = "https://github.com/DmitriLyalikov/rp-hal-boards.git"}
+rp-pico = "0.7.0"
 
 # but you can use any BSP. Uncomment this to use the pro_micro_rp2040 BSP instead
 # sparkfun-pro-micro-rp2040 = "0.1.0"

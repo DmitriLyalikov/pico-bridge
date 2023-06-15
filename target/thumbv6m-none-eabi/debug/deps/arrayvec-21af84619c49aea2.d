@@ -1,0 +1,11 @@
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\arrayvec-21af84619c49aea2.rmeta: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\arrayvec_impl.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\arrayvec.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\array_string.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\char.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\errors.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\utils.rs
+
+C:\Users\Dmitr\Documents\Rust_Projects\pico-rpc-rtic\target\thumbv6m-none-eabi\debug\deps\arrayvec-21af84619c49aea2.d: C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\lib.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\arrayvec_impl.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\arrayvec.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\array_string.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\char.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\errors.rs C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\utils.rs
+
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\lib.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\arrayvec_impl.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\arrayvec.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\array_string.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\char.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\errors.rs:
+C:\Users\Dmitr\.cargo\registry\src\github.com-1ecc6299db9ec823\arrayvec-0.7.3\src\utils.rs:

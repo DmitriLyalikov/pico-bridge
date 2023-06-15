@@ -1,1 +1,0 @@
-&mut UartPeripheral<rp_pico::rp2040_hal::uart::Enabled, UART0, (rp_pico::rp2040_hal::gpio::Pin<rp_pico::rp2040_hal::gpio::bank0::Gpio0, rp_pico::rp2040_hal::gpio::Function<rp_pico::rp2040_hal::gpio::Uart>>, rp_pico::rp2040_hal::gpio::Pin<rp_pico::rp2040_hal::gpio::bank0::Gpio1, rp_pico::rp2040_hal::gpio::Function<rp_pico::rp2040_hal::gpio::Uart>>)>

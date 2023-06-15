@@ -4,11 +4,19 @@
 //! Formatting Module for helping with logging over a serial connection.
 //! This is usefule since there are no debugging pins exposed on the board
 
-use core::fmt;
+use core::{fmt, str};
 
 pub(crate) struct Wrapper<'a> {
     buf: &'a mut [u8],
     offset: usize,
+}
+
+impl<'a> Wrapper<'a> {
+    fn new(buf: &'a mut [u8]) -> Self {
+        Wrapper {
+            buf: 
+        }
+    }
 }
 
 
