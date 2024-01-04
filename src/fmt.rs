@@ -14,7 +14,8 @@ pub(crate) struct Wrapper<'a> {
 impl<'a> Wrapper<'a> {
     fn new(buf: &'a mut [u8]) -> Self {
         Wrapper {
-            buf: 
+            buf: buf,
+            offset: 0, 
         }
     }
 }

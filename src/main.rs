@@ -22,6 +22,7 @@ mod fmt;
 mod serial;
 mod protocol;
 
+
 #[rtic::app(device = rp_pico::pac, peripherals = true, dispatchers= [PWM_IRQ_WRAP, SIO_IRQ_PROC0, SIO_IRQ_PROC1, UART1_IRQ])]
 mod app {
     use embedded_hal::digital::v2::OutputPin;
@@ -65,8 +66,8 @@ mod app {
     use core::str;
 
     /// Clock divider for the PIO SM
-    const SMI_DEFAULT_CLKDIV: u16 =  1;//4; // (133000000 / 2500000)
-    const PIO_CLK_DIV_FRAQ: u8 =  1;//145;
+    const SMI_DEFAULT_CLKDIV: u16 =  4;//4; // (133000000 / 2500000)
+    const PIO_CLK_DIV_FRAQ: u8 =  145;//145;
 
     type UartTx = Pin<Gpio0, FunctionUart>;
     type UartRx = Pin<Gpio1, FunctionUart>;
@@ -87,6 +88,8 @@ mod app {
         smi_tx: hal::pio::Tx<(pac::PIO0, SM0)>,
         // SMI PIO RX FIFO
         smi_rx: hal::pio::Rx<(pac::PIO0, SM0)>,
+
+        spi_master: hal::Spi<hal::spi::Enabled, pac::SPI1, 8>,
 
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
@@ -124,14 +127,17 @@ mod app {
         }
         let mut core = c.core;
         let mut p = c.device;
+        // let mut resets = c.device.RESETS;
         //*******
         // Initialization of the system clock.
         let mut watchdog = hal::watchdog::Watchdog::new(p.WATCHDOG);
-        
+
         // Try to set VREG to DVDD to 1.25V
         p.VREG_AND_CHIP_RESET.vreg.write(|w| unsafe {
             w.vsel().bits(14)
         });
+
+        /** 
         // Step 1. Turn on the crystal.
 	    let xosc = hal::xosc::setup_xosc_blocking(p.XOSC, rp_pico::XOSC_CRYSTAL_FREQ.Hz())
             .map_err(|_x| false)
@@ -156,14 +162,14 @@ mod app {
         let pll_sys = hal::pll::setup_pll_blocking(p.PLL_SYS,  xosc.operating_frequency(), hal::pll::PLLConfig {
                 vco_freq: HertzU32::MHz(800),
                 refdiv: 1,
-                post_div1: 3,
+                post_div1: 2,
                 post_div2: 2,
             }, &mut clocks,
             &mut p.RESETS,
         )
         .map_err(|_x| false)
         .unwrap();
-
+        
         // Step 5. Set up a 48 Mhz PLL for the USB system
         	// Step 5. Set up a 48 MHz PLL for the USB system.
 	let pll_usb = hal::pll::setup_pll_blocking(
@@ -181,11 +187,11 @@ mod app {
         .init_default(&xosc, &pll_sys, &pll_usb)
         .map_err(|_x| false)
         .unwrap();
-
+        */ 
         let mut resets = p.RESETS;
+        
         // The single-cycle I/O block controls our GPIO pins
         let sio = hal::Sio::new(p.SIO);
-
         // Set the pins to their default state
         let pins = hal::gpio::Pins::new(
             p.IO_BANK0,
@@ -193,6 +199,18 @@ mod app {
             sio.gpio_bank0,
             &mut resets,
         );
+        
+        let clocks = hal::clocks::init_clocks_and_plls(
+            XOSC_CRYSTAL_FREQ,
+            p.XOSC,
+            p.CLOCKS,
+            p.PLL_SYS,
+            p.PLL_USB,
+            &mut resets,
+            &mut watchdog,
+        )
+        .ok()
+        .unwrap();
 
         let mut freepin = pins.gpio25.into_push_pull_output();
         // SPI Pre-Init Reset State
@@ -209,6 +227,16 @@ mod app {
         let spi_mosi = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
         let spi_miso = pins.gpio16.into_mode::<hal::gpio::FunctionSpi>();
         let spi_cs = pins.gpio17.into_mode::<hal::gpio::FunctionSpi>();
+
+        let spi_master_sclk = pins.gpio26.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_master_mosi = pins.gpio27.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_master_miso = pins.gpio28.into_mode::<hal::gpio::FunctionSpi>();
+        let spi_master_cs = pins.gpio13.into_mode::<hal::gpio::FunctionSpi>();
+
+        let mut spi_master = hal::Spi::<_, _, 8>::new(p.SPI1);
+
+        // 
+        let mut spi_master = spi_master.init();
 
         let mut spi_dev = hal::Spi::<_, _, 8>::new(p.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
@@ -284,8 +312,8 @@ mod app {
                 .build();
          //*****
         // Initialization of the PIO0 and SMI state machine
-        let _mdio_pin = pins.gpio8.into_mode::<hal::gpio::FunctionPio0>();
-        let _mdc_pin = pins.gpio9.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdio_pin = pins.gpio6.into_mode::<hal::gpio::FunctionPio0>();
+        let _mdc_pin = pins.gpio7.into_mode::<hal::gpio::FunctionPio0>();
         let program = pio_proc::pio_asm!( 
         "
         .side_set 1",
@@ -293,8 +321,8 @@ mod app {
         "set pins, 0   side 0",
     "start:",
         "pull block side 0",
-        "set pindirs, 1 side 0",
         "set x, 31 side 0",
+        "set pindirs, 1 side 0",
     "preamble:",
         "set pins, 1 side 1      [4]",
         "set pins 1  side 0      [2]",
@@ -334,8 +362,8 @@ mod app {
         let (mut pio0, sm0, _, _, _,) = p.PIO0.split(&mut resets);
         let installed = pio0.install(&program.program).unwrap();
         let (mut sm, smi_rx, smi_tx) = PIOBuilder::from_program(installed)
-            .out_pins(5, 1)
-            .side_set_pin_base(6)
+            .out_pins(6, 1)
+            .side_set_pin_base(7)
             .out_sticky(false)
             .clock_divisor_fixed_point(SMI_DEFAULT_CLKDIV, PIO_CLK_DIV_FRAQ) // freq = 1 / (int + (frac/256))
             .out_shift_direction(ShiftDirection::Right)
@@ -343,11 +371,11 @@ mod app {
             .autopush(true)
             .autopull(false)
             // .pull_threshold()  // TEST Designed to autofill when OSRE completely empty, maybe 32 is valid. 
-            .set_pins(5, 1)
-            .in_pin_base(5)
+            .set_pins(6, 1)
+            .in_pin_base(6)
             .build(sm0);
-        sm.set_pindirs([(5, PinDir::Output)]);
         sm.set_pindirs([(6, PinDir::Output)]);
+        sm.set_pindirs([(7, PinDir::Output)]);
         let smi_master = sm.start();
         let serial_buf = [0_u8; 64];
         let _spi_tx_buf = [0_u16; 9];
@@ -468,6 +496,7 @@ mod app {
     fn spi0(cx: spi0::Context) {  
         let mut serial = cx.shared.serial;
         let mut freepin = cx.shared.freepin;
+        // We need to lock these resources within ISR to access them because to use hardware resources requires mutable reference
         (serial, freepin).lock(|serial, freepin|
             {
                 freepin.set_high();
@@ -696,6 +725,9 @@ mod app {
                             else {freepin.set_low().unwrap();}
                             // We do not do slave response on set/config commands
                     }
+                    ValidInterfaces::SPI => {
+
+                    }
                     _ => {}
                 }
                 write_serial(serial, return_string, false);
@@ -767,6 +799,7 @@ mod app {
                     // TODO Add match case for this
                     match slave_response.init_ready() {
                         Ok(sr) => {
+
                             write_serial(serial, "Hi", false);
                             respond_to_host::spawn(sr);
                         }
@@ -815,8 +848,12 @@ mod app {
             (serial).lock(|serial| {
                 let mut data = String::<32>::new();
                 let mut buf = [0 as u8, 20];
-                write!(Wrapper::new(&mut buf), "{}", sr.payload).expect("Can't Write");
-                write_serial(serial, out, false);
+                // Convert sr.payload to string and write to write_serial
+
+
+                write_serial(serial, "got here", false);
+                                // write!(Wrapper::new(&mut buf), "{}", sr.payload).expect("Can't Write");
+                // write_serial(serial, out, false);
             });
         } 
     }
@@ -839,3 +876,4 @@ mod app {
         }
     }
 }
+

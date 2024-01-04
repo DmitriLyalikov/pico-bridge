@@ -19,6 +19,7 @@
         }
     }
     
+    /// Enum representing valid host interfaces.
     #[derive(Copy, Clone, PartialEq, Debug)]
     pub enum ValidHostInterfaces {
         Serial = 0b00,
@@ -27,6 +28,7 @@
         None = 0b11,
     }
 
+/// This module contains the implementation of the host side of the PicoRPC protocol.
 pub mod host {
     use super::{combine_u16_to_u32, combine_u8_to_u32, encode_smi};
     use core::{marker::PhantomData};
@@ -49,6 +51,7 @@ pub mod host {
     impl State for Unclean {}
     impl State for Clean {}
 
+    /// Enum representing valid operations for the protocol.
     #[derive(PartialEq, Debug)]
     pub enum ValidOps  {
         None,
@@ -102,7 +105,25 @@ pub mod host {
             }
         }
     }
+
     #[derive(Debug)]
+    /// Represents a request from the host to the device.
+    /// 
+    /// `S` is a type parameter representing the state of the device.
+    /// 
+    /// `proc_id` is the ID of the procedure being requested.
+    /// 
+    /// `interface` is the interface being used for the request.
+    /// 
+    /// `host_config` is the configuration of the host interface.
+    /// 
+    /// `operation` is the operation being requested.
+    /// 
+    /// `checksum` is the wrapping checksum of the request.
+    /// 
+    /// `size` is the size of the payload, which is a value between 0 and 4.
+    /// 
+    /// `payload` is the payload of the request, which has a maximum size of 4 bytes over SPI.
     pub struct HostRequest<S: State> {
         state: PhantomData<S>,
         proc_id: u8,
@@ -116,8 +137,9 @@ pub mod host {
     }
 
     impl <S: State> HostRequest<S>{
+        /// Transition to a new state and return a `HostRequest` with the new state.
         fn transition<To: State>(self, _: To) -> Result<HostRequest<To>, &'static str> {
-           Ok(HostRequest {
+            Ok(HostRequest {
                 state: PhantomData,
                 proc_id: self.proc_id,
                 interface: self.interface,
