@@ -89,7 +89,7 @@ mod app {
         // SMI PIO RX FIFO
         smi_rx: hal::pio::Rx<(pac::PIO0, SM0)>,
 
-        spi_master: hal::Spi<hal::spi::Enabled, pac::SPI1, 8>,
+        //spi_master: hal::Spi<hal::spi::Enabled, pac::SPI1, 8>,
 
         // String command that will be received over serial and must be matched
         serial_buf: [u8; 64],
@@ -233,10 +233,10 @@ mod app {
         let spi_master_miso = pins.gpio28.into_mode::<hal::gpio::FunctionSpi>();
         let spi_master_cs = pins.gpio13.into_mode::<hal::gpio::FunctionSpi>();
 
-        let mut spi_master = hal::Spi::<_, _, 8>::new(p.SPI1);
+        //let mut spi_master = hal::Spi::<_, _, 8>::new(p.SPI1);
 
-        // 
-        let mut spi_master = spi_master.init();
+        // Initialize spi master at 1Mhz SPI Mode 0
+        // let mut spi_master = spi_master.init(&mut resets, )
 
         let mut spi_dev = hal::Spi::<_, _, 8>::new(p.SPI0);
         // Exchange the uninitialized spi device for an enabled slave
